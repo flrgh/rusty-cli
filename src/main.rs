@@ -42,10 +42,7 @@ fn main() {
         stream_enabled: !app.no_stream,
         stream_conf: app.stream_conf.clone(),
         http_conf: app.http_conf.clone(),
-        lua_loader: generate_lua_loader(&prefix, &app.lua_file, &app.inline_lua, &app.lua_args)
-            .lines()
-            .map(|s| s.to_owned())
-            .collect(),
+        lua_loader: generate_lua_loader(&prefix, &app.lua_file, &app.inline_lua, &app.lua_args),
         worker_connections: app.worker_connections,
     };
 

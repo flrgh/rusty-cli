@@ -4,6 +4,33 @@ use std::env;
 use std::fs;
 use std::io::Write as IoWrite;
 
+#[derive(Default)]
+struct Buf {
+    lines: Vec<String>,
+    indent: usize,
+}
+
+impl Buf {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn newline(&mut self) {
+        self.lines.push(String::new());
+    }
+
+    fn append(&mut self, s: &str) {
+        let mut line = String::new();
+
+        if self.indent > 0 {
+            line.push_str("    ".repeat(self.indent).as_str());
+        }
+
+        line.push_str(s);
+        self.lines.push(line);
+    }
+}
+
 // resty-cli has a fancier implementation that stores all observed "levels" in
 // a hash. Then it iterates over 1..$max_level and checks for hash membership,
 // picking the first level that is not found in the hash. It's a lot of work
@@ -44,7 +71,11 @@ pub fn quote_lua_string(s: &str) -> String {
     format!("[{}[{}]{}]", eq, s, eq)
 }
 
-fn generate_lua_file_loader(fname: &str, inline: bool) -> String {
+fn insert_lua_file_loader(buf: &mut Buf, fname: &str, inline: bool) {
+    buf.append(&format!("local fname = {}", quote_lua_string(fname)));
+    buf.append(r#"local f = assert(io.open(fname, "r"))"#);
+    buf.append(r#"local chunk = f:read("*a")"#);
+
     let chunk_name = match inline {
         true => "=(command line -e)".to_string(),
         false => format!("@{}", fname),
@@ -55,22 +86,19 @@ fn generate_lua_file_loader(fname: &str, inline: bool) -> String {
         false => "file",
     };
 
-    format!(
-        r#"
-    local fname = {}
-    local f = assert(io.open(fname, "r"))
-    local chunk = f:read("*a")
-    local {}_gen = assert(loadstring(chunk, {}))
-"#,
-        quote_lua_string(fname),
+    buf.append(&format!(
+        "local {}_gen = assert(loadstring(chunk, {}))",
         chunk_type,
         quote_lua_string(chunk_name.as_str())
-    )
+    ));
 }
 
-fn generate_code_for_inline_lua(prefix: &Prefix, lua: &Vec<String>) -> String {
+fn insert_inline_lua(buf: &mut Buf, prefix: &Prefix, lua: &Vec<String>) {
+    buf.append("-- inline lua code");
+
     if lua.is_empty() {
-        return "local inline_gen\n".to_string();
+        buf.append("local inline_gen");
+        return;
     }
 
     let path = prefix.conf.join("a.lua");
@@ -79,31 +107,38 @@ fn generate_code_for_inline_lua(prefix: &Prefix, lua: &Vec<String>) -> String {
     let mut fh = fs::File::create(&path).unwrap();
     fh.write_all(lua.join("; ").as_bytes()).unwrap();
     fh.flush().unwrap();
-    generate_lua_file_loader(fname, true)
+    insert_lua_file_loader(buf, fname, true);
 }
 
-fn generate_code_for_lua_file(file: &Option<String>) -> String {
+fn insert_code_for_lua_file(buf: &mut Buf, file: &Option<String>) {
+    buf.append("-- lua file");
     if file.is_none() {
-        return "local file_gen\n".to_string();
+        buf.append("local file_gen");
+        return;
     }
 
     let fname = file.clone().unwrap();
-    generate_lua_file_loader(fname.as_str(), false)
+    insert_lua_file_loader(buf, fname.as_str(), false);
 }
 
-fn generate_lua_args(file: &Option<String>, args: &Vec<String>) -> String {
-    let mut code = String::from("arg = {}\n");
+fn insert_lua_args(buf: &mut Buf, file: &Option<String>, args: &Vec<String>) {
+    buf.append("-- cli args");
+    buf.append("arg = {}");
 
-    code.push_str("    arg[0] = ");
-    let fname = match file {
-        Some(fname) => quote_lua_string(fname.as_str()),
-        None => quote_lua_string("./conf/a.lua"),
-    };
-    code.push_str(fname.as_str());
-    code.push_str("\n");
+    buf.append(&format!(
+        "arg[0] = {}",
+        match file {
+            Some(fname) => quote_lua_string(fname.as_str()),
+            None => quote_lua_string("./conf/a.lua"),
+        }
+    ));
 
     for (i, arg) in args.iter().enumerate() {
-        code.push_str(format!("    arg[{}] = {}\n", i + 1, quote_lua_string(arg)).as_str());
+        buf.append(&format!(
+            "arg[{}] = {}",
+            i + 1,
+            quote_lua_string(arg).as_str()
+        ));
     }
 
     let lua_args = match file {
@@ -115,18 +150,13 @@ fn generate_lua_args(file: &Option<String>, args: &Vec<String>) -> String {
     let prog = env::args().nth(0).unwrap();
     let all_args = env::args().len();
 
-    let pos: i16 = (all_args - lua_args).try_into().unwrap();
+    let pos: i32 = (all_args - lua_args).try_into().unwrap();
 
-    code.push_str(
-        format!(
-            "    arg[{}] = {}\n",
-            0 - pos,
-            quote_lua_string(prog.as_str())
-        )
-        .as_str(),
-    );
-
-    code
+    buf.append(&format!(
+        "arg[{}] = {}",
+        0 - pos,
+        quote_lua_string(prog.as_str())
+    ));
 }
 
 pub fn generate_lua_loader(
@@ -134,29 +164,31 @@ pub fn generate_lua_loader(
     file: &Option<String>,
     inline: &Vec<String>,
     lua_args: &Vec<String>,
-) -> String {
-    format!(
-        r#"
-local gen
-do
-    -- cli args
-    {}
+) -> Vec<String> {
+    let mut buf = Buf::new();
+    buf.append("local gen");
+    buf.append("do");
+    buf.indent += 1;
 
-    -- inline lua code (-e)
-    {}
+    insert_lua_args(&mut buf, file, lua_args);
+    buf.newline();
 
-    -- lua file
-    {}
+    insert_inline_lua(&mut buf, prefix, inline);
+    buf.newline();
 
-    gen = function()
-      if inline_gen then inline_gen() end
-      if file_gen then file_gen() end
-    end
-end"#,
-        generate_lua_args(file, lua_args),
-        generate_code_for_inline_lua(prefix, inline),
-        generate_code_for_lua_file(file)
-    )
+    insert_code_for_lua_file(&mut buf, file);
+    buf.newline();
+
+    buf.append("gen = function()");
+    buf.indent += 1;
+    buf.append("if inline_gen then inline_gen() end");
+    buf.append("if file_gen then file_gen() end");
+    buf.indent -= 1;
+    buf.append("end");
+    buf.indent -= 1;
+    buf.append("end");
+
+    buf.lines
 }
 
 pub fn package_path(dirs: &Vec<String>) -> Option<String> {
