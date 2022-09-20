@@ -10,16 +10,30 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-static HANDLED: [i32; 9] = [
+const HANDLED: [i32; 9] = [
     SIGINT, SIGTERM, SIGQUIT, SIGHUP, SIGUSR1, SIGUSR2, SIGWINCH, SIGPIPE, SIGCHLD,
 ];
 
-fn wait_signal(mut signals: SignalsInfo<exfiltrator::WithOrigin>) -> i32 {
-    signals
-        .wait()
-        .next()
-        .expect("Failed waiting for signal")
-        .signal
+fn register_signal_handlers() {
+    let term = Arc::new(AtomicBool::new(false));
+
+    for sig in HANDLED {
+        flag::register_conditional_default(sig, Arc::clone(&term))
+            .expect("Failed registering signal handler");
+        flag::register(sig, Arc::clone(&term)).expect("Failed registering signal handler");
+    }
+}
+
+fn wait_signal() -> i32 {
+    let mut signals = SignalsInfo::<exfiltrator::WithOrigin>::new(&HANDLED).unwrap();
+
+    loop {
+        if let Some(s) = signals.pending().next() {
+            return s.signal;
+        }
+
+        thread::sleep(Duration::from_millis(1));
+    }
 }
 
 fn send_signal(pid: u32, signum: i32) {
@@ -41,14 +55,15 @@ fn block_wait(mut proc: Child) -> Option<i32> {
 }
 
 fn wait_timeout(mut proc: Child) -> Option<i32> {
-    let mut nap = Duration::from_millis(1);
-    let mut slept = Duration::from_millis(0);
-    let timeout = Duration::from_millis(100);
+    let mut nap = Duration::from_micros(1_000);
+    let mut slept = Duration::from_micros(0);
+    let timeout = Duration::from_micros(100_000);
 
     let mut code = None;
 
     while slept < timeout {
-        nap *= 2;
+        nap = nap + (nap / 2);
+        //eprintln!("current nap {:?}", nap / 1000);
         slept += nap;
         thread::sleep(nap);
 
@@ -74,20 +89,12 @@ fn wait_timeout(mut proc: Child) -> Option<i32> {
 }
 
 pub fn run(mut cmd: Command) -> i32 {
-    let term = Arc::new(AtomicBool::new(false));
-
-    for sig in HANDLED {
-        flag::register_conditional_default(sig, Arc::clone(&term))
-            .expect("Failed registering signal handler");
-        flag::register(sig, Arc::clone(&term)).expect("Failed registering signal handler");
-    }
-    let signals = SignalsInfo::<exfiltrator::WithOrigin>::new(&HANDLED).unwrap();
+    register_signal_handlers();
 
     let proc = cmd.spawn().expect("error spawning Nginx");
-
     let pid = proc.id();
 
-    match wait_signal(signals) {
+    match wait_signal() {
         SIGCHLD => block_wait(proc).unwrap_or(0),
         SIGINT => {
             send_then_kill(pid, SIGQUIT);
