@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::net::IpAddr;
+use shlex::split;
 
 pub fn try_parse_resolv_conf() -> Option<Vec<String>> {
     let file: fs::File;
@@ -44,4 +45,54 @@ pub fn try_parse_resolv_conf() -> Option<Vec<String>> {
         });
 
     Some(nameservers)
+}
+
+pub fn split_shell_args(s: &str) -> Vec<String> {
+    split(s).expect("Invalid runner options")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_split_shell_args() {
+        assert_eq!(vec![
+                "--nx",
+                "-batch",
+                "-ex",
+                "b main",
+                "-ex",
+                "run",
+                "-ex",
+                "bt",
+                "-ex",
+                "b lj_cf_io_method_write",
+                "-ex",
+                "c",
+                "-ex",
+                "bt",
+            ],
+            split_shell_args("--nx -batch -ex 'b main' -ex run -ex bt -ex 'b lj_cf_io_method_write' -ex c -ex bt")
+        );
+
+        assert_eq!(vec![
+                "--nx",
+                "-batch",
+                "-ex",
+                "b main",
+                "-ex",
+                "run",
+                "-ex",
+                "bt",
+                "-ex",
+                "b lj_cf_io_method_write",
+                "-ex",
+                "c",
+                "-ex",
+                "bt",
+            ],
+            split_shell_args(" --nx -batch -ex 'b main' -ex run -ex bt -ex 'b lj_cf_io_method_write' -ex c -ex bt  ")
+        );
+    }
 }

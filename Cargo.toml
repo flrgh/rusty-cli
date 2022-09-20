@@ -11,3 +11,4 @@ mktemp = { version = "0.4.1" }
 minijinja = "0.20.0"
 signal-hook = { version = "0.3.14", features = ["iterator", "channel", "extended-siginfo"] }
 signal-child = "1.0.5"
+shlex = "1.1.0"
