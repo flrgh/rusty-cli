@@ -25,7 +25,7 @@ fn register_signal_handlers() {
 }
 
 fn wait_signal() -> i32 {
-    let mut signals = SignalsInfo::<exfiltrator::WithOrigin>::new(&HANDLED).unwrap();
+    let mut signals = SignalsInfo::<exfiltrator::WithOrigin>::new(HANDLED).unwrap();
 
     loop {
         if let Some(s) = signals.pending().next() {

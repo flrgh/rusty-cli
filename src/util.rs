@@ -1,7 +1,7 @@
+use shlex;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::net::IpAddr;
-use shlex::split;
 
 pub fn try_parse_resolv_conf() -> Option<Vec<String>> {
     let file: fs::File;
@@ -48,7 +48,11 @@ pub fn try_parse_resolv_conf() -> Option<Vec<String>> {
 }
 
 pub fn split_shell_args(s: &str) -> Vec<String> {
-    split(s).expect("Invalid runner options")
+    shlex::split(s).expect("Invalid runner options")
+}
+
+pub fn join_shell_args(args: Vec<&str>) -> String {
+    shlex::join(args.into_iter())
 }
 
 #[cfg(test)]
@@ -93,6 +97,29 @@ mod tests {
                 "bt",
             ],
             split_shell_args(" --nx -batch -ex 'b main' -ex run -ex bt -ex 'b lj_cf_io_method_write' -ex c -ex bt  ")
+        );
+    }
+
+    #[test]
+    fn test_join_shell_args() {
+        assert_eq!(
+            "--nx -batch -ex \"b main\" -ex run -ex bt -ex \"b lj_cf_io_method_write\" -ex c -ex bt",
+            join_shell_args(vec![
+                "--nx",
+                "-batch",
+                "-ex",
+                "b main",
+                "-ex",
+                "run",
+                "-ex",
+                "bt",
+                "-ex",
+                "b lj_cf_io_method_write",
+                "-ex",
+                "c",
+                "-ex",
+                "bt",
+            ])
         );
     }
 }

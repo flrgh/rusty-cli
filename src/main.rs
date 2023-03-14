@@ -24,7 +24,7 @@ fn main() {
         e.exit()
     }
 
-    let app = app.unwrap();
+    let mut app = app.unwrap();
 
     let nginx = &app.nginx;
 
@@ -52,8 +52,6 @@ fn main() {
     fh.flush().unwrap();
     drop(fh);
 
-    let mut c = Command::new(nginx);
-    c.args(["-p", prefix.root.to_str().unwrap(), "-c", "conf/nginx.conf"]);
-
-    exit(run(c))
+    app.prefix = Some(prefix);
+    exit(run(Command::from(app)))
 }

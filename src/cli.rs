@@ -10,6 +10,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::fs;
 use std::net::IpAddr;
 use std::path::PathBuf;
+use std::process;
 
 fn confs(field: &mut Vec<String>, id: &str, m: &mut ArgMatches) {
     for line in consume_arg_strings(id, m) {
@@ -464,6 +465,47 @@ pub struct App {
 
     pub cli_args: Vec<String>,
     pub version: bool,
+
+    pub prefix: Option<Prefix>,
+}
+
+impl From<App> for process::Command {
+    fn from(app: App) -> Self {
+        let root = app.prefix.unwrap().root;
+        let prefix = root.to_str().unwrap();
+
+        let nginx = app.nginx.to_str().unwrap();
+        let mut bin: String;
+        let mut args: Vec<String> = vec![];
+
+        match app.runner {
+            Runner::Default => {
+                bin = nginx.to_owned();
+                args.push(String::from("-p"));
+                args.push(prefix.to_owned());
+                args.push(String::from("-c"));
+                args.push(String::from("conf/nginx.conf"));
+            }
+            Runner::RR => todo!(),
+            Runner::Stap(opts) => {
+                bin = String::from("stap");
+                args = vec![];
+                if let Some(opts) = opts {
+                    //let sp = split_shell_args(&opts);
+                    args.append(&mut split_shell_args(&opts));
+                }
+                args.push(String::from("-c"));
+            }
+            Runner::Valgrind(_) => todo!(),
+            Runner::Gdb(_) => todo!(),
+            Runner::User(_) => todo!(),
+        };
+
+        let mut c = process::Command::new(app.nginx);
+
+        c.args(["-p", prefix, "-c", "conf/nginx.conf"]);
+        todo!()
+    }
 }
 
 #[derive(Default, Debug)]

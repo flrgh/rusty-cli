@@ -1,5 +1,5 @@
 use mktemp::Temp;
-use std::fmt::{Display, Formatter, Result as fmtResult};
+use std::fmt::{Debug, Display, Formatter, Result as fmtResult};
 use std::fs;
 use std::path::PathBuf;
 
@@ -8,6 +8,12 @@ pub struct Prefix {
     pub conf: PathBuf,
     pub logs: PathBuf,
     _tmp: Temp,
+}
+
+impl Debug for Prefix {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult {
+        write!(f, "{}", self.root.to_str().unwrap())
+    }
 }
 
 impl Display for Prefix {
@@ -19,8 +25,9 @@ impl Display for Prefix {
 impl Prefix {
     pub fn new() -> Result<Self, std::io::Error> {
         let tmp = Temp::new_dir().unwrap();
-        //let root = PathBuf::from(tmp.to_path_buf());
-        let root = tmp.to_path_buf();
+
+        //let root = tmp.to_path_buf();
+        let root = PathBuf::from("./test");
         let conf = root.join("conf");
         let logs = root.join("logs");
 
