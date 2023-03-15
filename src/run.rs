@@ -14,7 +14,9 @@ const HANDLED: [i32; 9] = [
     SIGINT, SIGTERM, SIGQUIT, SIGHUP, SIGUSR1, SIGUSR2, SIGWINCH, SIGPIPE, SIGCHLD,
 ];
 
-fn register_signal_handlers() {
+type SignalIterator = SignalsInfo::<exfiltrator::WithOrigin>;
+
+fn register_signal_handlers() -> SignalIterator {
     let term = Arc::new(AtomicBool::new(false));
 
     for sig in HANDLED {
@@ -22,23 +24,16 @@ fn register_signal_handlers() {
             .expect("Failed registering signal handler");
         flag::register(sig, Arc::clone(&term)).expect("Failed registering signal handler");
     }
-}
 
-fn wait_signal() -> i32 {
-    let mut signals = SignalsInfo::<exfiltrator::WithOrigin>::new(HANDLED).unwrap();
-
-    loop {
-        if let Some(s) = signals.pending().next() {
-            return s.signal;
-        }
-
-        thread::sleep(Duration::from_millis(1));
-    }
+    SignalsInfo::new(HANDLED).expect("Failed to create signal iterator")
 }
 
 fn send_signal(pid: u32, signum: i32) {
-    let sig = Signal::try_from(signum).expect("Invalid signal {signum}");
-    signal(pid as i32, sig).expect("Failed sending signal to child process");
+    let sig = Signal::try_from(signum)
+        .expect("Invalid signal {signum}");
+
+    signal(pid as i32, sig)
+        .expect("Failed sending signal to child process");
 }
 
 fn send_then_kill(pid: u32, signum: i32) {
@@ -48,73 +43,49 @@ fn send_then_kill(pid: u32, signum: i32) {
 }
 
 fn block_wait(mut proc: Child) -> Option<i32> {
-    let result = proc
-        .wait()
-        .expect("Failed waiting for child process to exit");
-    result.code()
-}
-
-fn wait_timeout(mut proc: Child) -> Option<i32> {
-    let mut nap = Duration::from_micros(1_000);
-    let mut slept = Duration::from_micros(0);
-    let timeout = Duration::from_micros(100_000);
-
-    let mut code = None;
-
-    while slept < timeout {
-        nap = nap + (nap / 2);
-        //eprintln!("current nap {:?}", nap / 1000);
-        slept += nap;
-        thread::sleep(nap);
-
-        match proc.try_wait() {
-            Ok(Some(status)) => {
-                code = status.code();
-                break;
-            }
-            Ok(None) => {
-                continue;
-            }
-            Err(e) => {
-                eprintln!("OH NO: {e}");
-                unreachable!();
-            }
-        }
-    }
-
-    if code.unwrap_or(0) == 0 {
-        return None;
-    }
-    code
+    proc.wait()
+        .expect("Failed waiting for child process to exit")
+        .code()
 }
 
 pub fn run(mut cmd: Command) -> i32 {
-    register_signal_handlers();
+    let mut signals = register_signal_handlers();
 
     let proc = cmd.spawn().expect("error spawning Nginx");
     let pid = proc.id();
 
-    match wait_signal() {
-        SIGCHLD => block_wait(proc).unwrap_or(0),
+    let caught = signals
+        .forever()
+        .next()
+        .expect("Failed waiting for a signal")
+        .signal;
+
+    match caught {
+        SIGCHLD => {
+            block_wait(proc).unwrap_or(0)
+        },
         SIGINT => {
             send_then_kill(pid, SIGQUIT);
+            block_wait(proc);
             130
         }
         SIGPIPE => {
             send_then_kill(pid, SIGQUIT);
+            block_wait(proc);
             141
         }
         SIGHUP => {
             send_signal(pid, SIGQUIT);
-            wait_timeout(proc).unwrap_or(0)
+            block_wait(proc).unwrap_or(0)
         }
         SIGTERM => {
             send_signal(pid, SIGTERM);
-            wait_timeout(proc).unwrap_or(143)
+            block_wait(proc);
+            143
         }
         other => {
             send_signal(pid, other);
-            wait_timeout(proc).unwrap_or(0)
+            block_wait(proc).unwrap_or(0)
         }
     }
 }
