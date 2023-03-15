@@ -472,38 +472,74 @@ pub struct App {
 impl From<App> for process::Command {
     fn from(app: App) -> Self {
         let root = app.prefix.unwrap().root;
-        let prefix = root.to_str().unwrap();
 
-        let nginx = app.nginx.to_str().unwrap();
-        let mut bin: String;
+        // resty CLI always adds a trailing slash
+        let prefix = format!("{}/", root.to_str().unwrap().trim_end_matches("/"));
+
+        let nginx = app.nginx.to_str().unwrap().to_owned();
+        let mut nginx_args = vec![
+            String::from("-p"),
+            String::from(prefix),
+            String::from("-c"),
+            String::from("conf/nginx.conf"),
+        ];
+
+        let bin: String;
         let mut args: Vec<String> = vec![];
 
         match app.runner {
             Runner::Default => {
-                bin = nginx.to_owned();
-                args.push(String::from("-p"));
-                args.push(prefix.to_owned());
-                args.push(String::from("-c"));
-                args.push(String::from("conf/nginx.conf"));
+                bin = nginx;
+                args.append(&mut nginx_args);
             }
-            Runner::RR => todo!(),
+            Runner::RR => {
+                bin = String::from("rr");
+                args.push(String::from("record"));
+                args.push(nginx);
+                args.append(&mut nginx_args);
+            },
             Runner::Stap(opts) => {
                 bin = String::from("stap");
                 args = vec![];
                 if let Some(opts) = opts {
-                    //let sp = split_shell_args(&opts);
                     args.append(&mut split_shell_args(&opts));
                 }
-                args.push(String::from("-c"));
+                args.push("-c".to_owned());
+                nginx_args.insert(0, nginx);
+                args.push(join_shell_args(nginx_args.iter_mut().map(|s| {
+                    s.as_str()
+                }).collect()));
             }
-            Runner::Valgrind(_) => todo!(),
-            Runner::Gdb(_) => todo!(),
-            Runner::User(_) => todo!(),
+            Runner::Valgrind(opts) => {
+                bin = "valgrind".to_owned();
+                args = vec![];
+                if let Some(opts) = opts {
+                    args.append(&mut split_shell_args(&opts));
+                }
+                args.push(nginx);
+                args.append(&mut nginx_args);
+            },
+            Runner::Gdb(opts) => {
+                bin = String::from("gdb");
+                if let Some(opts) = opts {
+                    args.append(&mut split_shell_args(&opts));
+                }
+                args.push("--args".to_owned());
+                args.push(nginx);
+                args.append(&mut nginx_args);
+            },
+            Runner::User(runner) => {
+                let mut user_args = split_shell_args(&runner);
+                bin = user_args.remove(0);
+                args.append(&mut user_args);
+                args.push(nginx);
+                args.append(&mut nginx_args);
+            }
         };
 
-        let mut c = process::Command::new(app.nginx);
+        let mut c = process::Command::new(bin);
 
-        c.args(["-p", prefix, "-c", "conf/nginx.conf"]);
+        c.args(args);
         c
     }
 }
