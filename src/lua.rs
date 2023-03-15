@@ -65,7 +65,7 @@ fn get_bracket_level(s: &str) -> usize {
     max_level + 1
 }
 
-pub fn quote_lua_string(s: &str) -> String {
+pub(crate) fn quote_lua_string(s: &str) -> String {
     let eq = "=".repeat(get_bracket_level(s));
 
     format!("[{}[{}]{}]", eq, s, eq)
@@ -159,7 +159,7 @@ fn insert_lua_args(buf: &mut Buf, file: &Option<String>, args: &Vec<String>) {
     ));
 }
 
-pub fn generate_lua_loader(
+pub(crate) fn generate_lua_loader(
     prefix: &Prefix,
     file: &Option<String>,
     inline: &Vec<String>,
@@ -191,7 +191,7 @@ pub fn generate_lua_loader(
     buf.lines
 }
 
-pub fn package_path(dirs: &Vec<String>) -> Option<String> {
+pub(crate) fn package_path(dirs: &Vec<String>) -> Option<String> {
     if dirs.is_empty() {
         return None;
     }
@@ -216,7 +216,7 @@ pub fn package_path(dirs: &Vec<String>) -> Option<String> {
     Some(path)
 }
 
-pub fn package_cpath(dirs: &Vec<String>) -> Option<String> {
+pub(crate) fn package_cpath(dirs: &Vec<String>) -> Option<String> {
     if dirs.is_empty() {
         return None;
     }

@@ -3,10 +3,10 @@ use std::fmt::{Debug, Display, Formatter, Result as fmtResult};
 use std::fs;
 use std::path::PathBuf;
 
-pub struct Prefix {
-    pub root: PathBuf,
-    pub conf: PathBuf,
-    pub logs: PathBuf,
+pub(crate) struct Prefix {
+    pub(crate) root: PathBuf,
+    pub(crate) conf: PathBuf,
+    pub(crate) logs: PathBuf,
     _tmp: Temp,
 }
 
@@ -23,7 +23,7 @@ impl Display for Prefix {
 }
 
 impl Prefix {
-    pub fn new() -> Result<Self, std::io::Error> {
+    pub(crate) fn new() -> Result<Self, std::io::Error> {
         let tmp = Temp::new_dir().unwrap();
 
         //let root = tmp.to_path_buf();
@@ -45,9 +45,9 @@ impl Prefix {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ValueWithIndex {
-    pub value: String,
-    pub index: usize,
+pub(crate) struct ValueWithIndex {
+    pub(crate) value: String,
+    pub(crate) index: usize,
 }
 
 impl PartialOrd for ValueWithIndex {
