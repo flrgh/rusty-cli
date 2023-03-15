@@ -504,7 +504,7 @@ impl From<App> for process::Command {
         let mut c = process::Command::new(app.nginx);
 
         c.args(["-p", prefix, "-c", "conf/nginx.conf"]);
-        todo!()
+        c
     }
 }
 
