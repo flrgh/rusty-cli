@@ -55,7 +55,7 @@ Many of the core features are implemented, but there's a ways to go to acheive
     - [x] version (`-V` | `-v`)
 - runtime behavior
     - [x] trap+update+forward signals to NGINX process
-    - [x set exit status from NGINX
+    - [x] set exit status from NGINX
 - platform/OS support
     - [x] *nix
     - [ ] Windows (this might be dropped as a goal altogether)
