@@ -9,6 +9,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+use libc::ESRCH;
+
 
 const HANDLED: [i32; 9] = [
     SIGINT, SIGTERM, SIGQUIT, SIGHUP, SIGUSR1, SIGUSR2, SIGWINCH, SIGPIPE, SIGCHLD,
@@ -32,8 +34,14 @@ fn send_signal(pid: u32, signum: i32) {
     let sig = Signal::try_from(signum)
         .expect("Invalid signal {signum}");
 
-    signal(pid as i32, sig)
-        .expect("Failed sending signal to child process");
+    signal(pid as i32, sig).map_err(|e| {
+        match e.raw_os_error() {
+            // the child process is already gone
+            // https://github.com/openresty/resty-cli/pull/39
+            Some(ESRCH) => Ok(()),
+            _ => Err(e),
+        }
+    }).expect("Failed sending signal to child process");
 }
 
 fn send_then_kill(pid: u32, signum: i32) {

@@ -9,8 +9,9 @@ edition = "2021"
 clap = { version = "4", features = ["derive", "cargo"] }
 mktemp = { version = "0.4.1" }
 minijinja = "0.20.0"
-signal-hook = { version = "0.3.14", features = ["iterator", "channel", "extended-siginfo"] }
+signal-hook = { version = "0.3.15", features = ["iterator", "channel", "extended-siginfo"] }
 signal-child = "1.0.5"
 shlex = "1.1.0"
 strum = { version = "0.24", features = ["derive"] }
 strum_macros = "0.24"
+libc = "0.2"
