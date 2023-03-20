@@ -6,6 +6,39 @@ use std::string::ToString;
 use strum_macros;
 use clap;
 use std::net;
+use libc::{mkdtemp, c_int, size_t, int8_t, PT_NULL, c_char};
+use errno::errno;
+use std::io;
+use std::ffi;
+use std::ffi::CStr;
+
+const MKDTEMP_TEMPLATE: &str = "/tmp/resty_XXXXXX";
+
+fn tempdir(tpl: Option<&str>) -> io::Result<String> {
+    let tpl = ffi::CString::new(tpl.unwrap_or(MKDTEMP_TEMPLATE)).unwrap();
+    unsafe {
+        let res = mkdtemp(tpl.as_ptr() as *mut c_char);
+
+        if res == std::ptr::null_mut() {
+            let e = errno();
+            return Err(io::Error::from_raw_os_error(e.0))
+        }
+
+        Ok(ffi::CStr::from_ptr(res).to_str().unwrap().to_string())
+        //Ok("yes".to_string())
+
+        //Ok(std::ffi::CString::from_raw(res).to_str().unwrap().to_owned())
+    }
+//    todo!();
+}
+
+#[test]
+fn pls_dont_die() {
+    //assert_eq!("abcd".to_string(), tempdir(None).unwrap());
+    assert!(tempdir(Some("/tmp/weeee")).is_err());
+    assert!(tempdir(None).is_ok());
+}
+
 
 fn trim_brackets(s: &str) -> &str {
     s.strip_prefix('[')
@@ -116,7 +149,7 @@ impl Display for Prefix {
 
 impl Prefix {
     pub(crate) fn new() -> Result<Self, std::io::Error> {
-        let tmp = Temp::new_dir().unwrap();
+        let tmp = Temp::new_dir()?;
 
         let root = tmp.to_path_buf();
         //let root = PathBuf::from("./test");
