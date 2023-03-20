@@ -1,10 +1,50 @@
 use mktemp::Temp;
-use std::fmt::{Debug, Display, Formatter, Result as fmtResult};
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use std::fs;
 use std::path::PathBuf;
 use std::string::ToString;
 use strum_macros;
 use clap;
+use std::net;
+
+fn trim_brackets(s: &str) -> &str {
+    s.strip_prefix('[')
+        .and_then(|st| st.strip_suffix(']'))
+        .unwrap_or(s)
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(crate) struct IpAddr(String);
+
+impl Display for IpAddr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::str::FromStr for IpAddr {
+    type Err = net::AddrParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        trim_brackets(s)
+            .parse::<net::IpAddr>()
+            .map(|_| IpAddr(s.to_owned()))
+    }
+}
+
+#[test]
+fn test_ip_addr_from_str() {
+    assert_eq!(Ok(IpAddr("[::1]".to_string())),
+              "[::1]".parse::<IpAddr>());
+
+    assert_eq!(Ok(IpAddr("[2003:dead:beef:4dad:23:46:bb:101]".to_string())),
+               "[2003:dead:beef:4dad:23:46:bb:101]".parse::<IpAddr>());
+
+    assert_eq!(Ok(IpAddr("127.0.0.1".to_string())),
+               "127.0.0.1".parse::<IpAddr>());
+}
+
+
 
 #[derive(clap::ValueEnum, Clone, Debug, Default, strum_macros::Display, strum_macros::EnumString)]
 #[clap(rename_all = "lower")]
@@ -63,13 +103,13 @@ pub(crate) struct Prefix {
 }
 
 impl Debug for Prefix {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.root.to_str().unwrap())
     }
 }
 
 impl Display for Prefix {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.root.to_str().unwrap())
     }
 }
