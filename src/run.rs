@@ -59,7 +59,21 @@ fn block_wait(mut proc: Child) -> Option<i32> {
 pub fn run(mut cmd: Command) -> i32 {
     let mut signals = register_signal_handlers();
 
-    let proc = cmd.spawn().expect("error spawning Nginx");
+    let proc: std::process::Child;
+
+    match cmd.spawn() {
+        Ok(child) => { proc = child; }
+        Err(e) => {
+            eprintln!(
+                "ERROR: failed to run command {}: {}",
+                cmd.get_program().to_str().unwrap(),
+                e.to_string()
+            );
+            return 2
+        }
+    }
+
+
     let pid = proc.id();
 
     let caught = signals
