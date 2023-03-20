@@ -118,8 +118,8 @@ impl Prefix {
     pub(crate) fn new() -> Result<Self, std::io::Error> {
         let tmp = Temp::new_dir().unwrap();
 
-        //let root = tmp.to_path_buf();
-        let root = PathBuf::from("./test");
+        let root = tmp.to_path_buf();
+        //let root = PathBuf::from("./test");
         let conf = root.join("conf");
         let logs = root.join("logs");
 

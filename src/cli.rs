@@ -443,15 +443,15 @@ pub(crate) struct App {
     pub(crate) cli_args: Vec<String>,
     pub(crate) version: bool,
 
-    pub(crate) prefix: Option<Prefix>,
+    pub(crate) prefix: Option<String>,
 }
 
 impl From<App> for process::Command {
     fn from(app: App) -> Self {
-        let root = app.prefix.unwrap().root;
+        let root = app.prefix.unwrap();
 
         // resty CLI always adds a trailing slash
-        let prefix = format!("{}/", root.to_str().unwrap().trim_end_matches("/"));
+        let prefix = format!("{}/", root.trim_end_matches("/"));
 
         let nginx = app.nginx.to_str().unwrap().to_owned();
         let mut nginx_args = vec![

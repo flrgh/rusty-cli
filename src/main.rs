@@ -52,6 +52,6 @@ fn main() {
     fh.flush().unwrap();
     drop(fh);
 
-    app.prefix = Some(prefix);
+    app.prefix = Some(prefix.root.to_str().unwrap().to_owned());
     exit(run(Command::from(app)))
 }
