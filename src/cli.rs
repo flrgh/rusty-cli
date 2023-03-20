@@ -9,9 +9,30 @@ use std::convert::{From, TryFrom};
 use std::env;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::fs;
-use std::net::IpAddr;
 use std::path::PathBuf;
 use std::process;
+
+#[derive(Debug, Clone)]
+struct MissingIncludeFileError {
+    section: String,
+    filename: String,
+}
+
+impl Display for MissingIncludeFileError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "could not find {} include file '{}'", self.section, self.filename)
+    }
+}
+
+impl From<MissingIncludeFileError> for clap::error::Error {
+    fn from(value: MissingIncludeFileError) -> Self {
+        eprintln!("ERROR: {}", value);
+        clap::Error::new(ErrorKind::Io)
+    }
+}
+
+type IncludeResult = Result<(), MissingIncludeFileError>;
+
 
 fn confs(field: &mut Vec<String>, id: &str, m: &mut ArgMatches) {
     for line in consume_arg_strings(id, m) {
@@ -19,13 +40,30 @@ fn confs(field: &mut Vec<String>, id: &str, m: &mut ArgMatches) {
     }
 }
 
-fn includes(field: &mut Vec<String>, id: &str, m: &mut ArgMatches) {
+fn includes(field: &mut Vec<String>, id: &str, m: &mut ArgMatches) -> IncludeResult {
+    // main-conf => main
+    let section = id.split_once('-').map_or(id, |t| t.0);
+
     for p in consume_arg_strings(id, m) {
-        // TODO: error handling
-        let path = fs::canonicalize(p).unwrap();
+        let path = fs::canonicalize(p.clone()).map_err(|_| {
+            MissingIncludeFileError {
+                section: section.to_string(),
+                filename: p.clone(),
+            }
+        })?;
+
         let s = path.to_str().unwrap().to_string();
+
+        if ! path.is_file() {
+            eprintln!("WTF {}", s);
+            return Err(MissingIncludeFileError {
+                section: section.to_string(),
+                filename: p.clone(),
+            })
+        }
         field.push(format!("include {};", s));
     }
+    Ok(())
 }
 
 fn resolver(app: &App) -> String {
@@ -52,7 +90,8 @@ fn normalize_conf_line(line: String) -> String {
     format!("{};", line)
 }
 
-fn http_conf(app: &mut App, m: &mut ArgMatches) {
+
+fn http_conf(app: &mut App, m: &mut ArgMatches) -> IncludeResult {
     app.http_conf.push(resolver(app));
     app.http_conf.extend(package_path(&app.lua_package_path));
     app.http_conf.extend(package_cpath(&app.lua_package_path));
@@ -63,7 +102,7 @@ fn http_conf(app: &mut App, m: &mut ArgMatches) {
     }
 
     confs(&mut app.http_conf, "http-conf", m);
-    includes(&mut app.http_conf, "http-conf", m);
+    includes(&mut app.http_conf, "http-include", m)
 }
 
 fn stream_conf(app: &mut App, m: &mut ArgMatches) {
@@ -76,12 +115,12 @@ fn stream_conf(app: &mut App, m: &mut ArgMatches) {
     extend_from_args(&mut app.stream_conf, "stream-conf", m);
 }
 
-fn main_conf(app: &mut App, m: &mut ArgMatches) {
+fn main_conf(app: &mut App, m: &mut ArgMatches) -> IncludeResult {
     app.main_conf.extend(env_vars());
     app.main_conf
         .push(format!("error_log stderr {};", app.errlog_level.to_owned()));
     confs(&mut app.main_conf, "main-conf", m);
-    includes(&mut app.main_conf, "main-conf", m);
+    includes(&mut app.main_conf, "main-include", m)
 }
 
 fn consume_arg_strings(id: &str, m: &mut ArgMatches) -> impl Iterator<Item = String> {
@@ -883,8 +922,8 @@ impl TryFrom<env::Args> for App {
         set_from_args(&mut app.errlog_level, "errlog-level", &mut m);
         extend_from_args(&mut app.lua_package_path, "lua-package-path", &mut m);
 
-        main_conf(&mut app, &mut m);
-        http_conf(&mut app, &mut m);
+        main_conf(&mut app, &mut m)?;
+        http_conf(&mut app, &mut m)?;
         stream_conf(&mut app, &mut m);
 
         app.runner = Runner::from(&mut m);
