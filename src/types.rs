@@ -14,7 +14,7 @@ use std::ffi::CStr;
 
 const MKDTEMP_TEMPLATE: &str = "/tmp/resty_XXXXXX";
 
-fn tempdir(tpl: Option<&str>) -> io::Result<String> {
+pub fn tempdir(tpl: Option<&str>) -> io::Result<String> {
     let tpl = ffi::CString::new(tpl.unwrap_or(MKDTEMP_TEMPLATE)).unwrap();
     unsafe {
         let res = mkdtemp(tpl.as_ptr() as *mut c_char);
@@ -131,8 +131,6 @@ impl From<&JitCmd> for String {
 pub(crate) struct Prefix {
     pub(crate) root: PathBuf,
     pub(crate) conf: PathBuf,
-    pub(crate) logs: PathBuf,
-    _tmp: Temp,
 }
 
 impl Debug for Prefix {
@@ -149,23 +147,27 @@ impl Display for Prefix {
 
 impl Prefix {
     pub(crate) fn new() -> Result<Self, std::io::Error> {
-        let tmp = Temp::new_dir()?;
+        let tmp = tempdir(None)?;
 
-        let root = tmp.to_path_buf();
-        //let root = PathBuf::from("./test");
+        let root = PathBuf::from(tmp);
         let conf = root.join("conf");
-        let logs = root.join("logs");
 
         fs::create_dir_all(&root)?;
         fs::create_dir_all(&conf)?;
-        fs::create_dir_all(&logs)?;
+        fs::create_dir_all(root.join("logs"))?;
 
         Ok(Prefix {
             root,
             conf,
-            logs,
-            _tmp: tmp,
         })
+    }
+}
+
+impl Drop for Prefix {
+    fn drop(&mut self) {
+        if let Err(e) = fs::remove_dir_all(&self.root) {
+            eprintln!("Failed to remove directory {}: {}", self.root.display(), e);
+        }
     }
 }
 

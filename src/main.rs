@@ -53,5 +53,9 @@ fn main() {
     drop(fh);
 
     app.prefix = Some(prefix.root.to_str().unwrap().to_owned());
-    exit(run(Command::from(app)))
+    let ec = run(Command::from(app));
+
+    drop(prefix);
+
+    exit(ec)
 }
