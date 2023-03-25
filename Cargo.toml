@@ -16,3 +16,6 @@ strum = { version = "0.24", features = ["derive"] }
 strum_macros = "0.24"
 libc = "0.2"
 errno = "0.3.0"
+nix = { version = "0.26.2", features = [ "signal", "process" ] }
+signal-hook-registry = "1.4.1"
+lazy_static = "1.4.0"

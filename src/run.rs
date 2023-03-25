@@ -10,25 +10,38 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use libc::ESRCH;
+use std::io::Read;
+use signal_hook::low_level as ll;
 
 
 const HANDLED: [i32; 9] = [
     SIGINT, SIGTERM, SIGQUIT, SIGHUP, SIGUSR1, SIGUSR2, SIGWINCH, SIGPIPE, SIGCHLD,
 ];
 
-type SignalIterator = SignalsInfo::<exfiltrator::WithOrigin>;
+
+
+//type SignalIterator = SignalsInfo::<exfiltrator::WithOrigin>;
+type SignalIterator = SignalsInfo::<exfiltrator::SignalOnly>;
+
+use std::os::unix::net::UnixStream;
+use std::os::unix::process::CommandExt;
 
 fn register_signal_handlers() -> SignalIterator {
     let term = Arc::new(AtomicBool::new(false));
 
     for sig in HANDLED {
+        if sig != SIGPIPE {
+            continue;
+        }
         flag::register_conditional_default(sig, Arc::clone(&term))
             .expect("Failed registering signal handler");
-        flag::register(sig, Arc::clone(&term)).expect("Failed registering signal handler");
+        flag::register(sig, Arc::clone(&term))
+            .expect("Failed registering signal handler");
     }
 
-    SignalsInfo::new(HANDLED).expect("Failed to create signal iterator")
+    SignalsInfo::new(&HANDLED).expect("Failed to create signal iterator")
 }
+
 
 fn send_signal(pid: u32, signum: i32) {
     let sig = Signal::try_from(signum)
@@ -56,10 +69,60 @@ fn block_wait(mut proc: Child) -> Option<i32> {
         .code()
 }
 
-pub fn run(mut cmd: Command) -> i32 {
-    let mut signals = register_signal_handlers();
+const SIG_DFL: nix::sys::signal::SigHandler = nix::sys::signal::SigHandler::SigDfl;
 
-    let proc: std::process::Child;
+use std::sync::atomic::{Ordering};
+use std::sync::{Condvar, Mutex};
+//use std::sync::Arc;
+use std::sync::Once;
+use nix::sys::signal as ns;
+use signal_hook_registry::register;
+use std::cell::Cell;
+
+static mut CAUGHT: i32 = 0;
+
+static SIGNALED: Once = Once::new();
+
+lazy_static! {
+    static ref COND: Arc<(Mutex<i32>, Condvar)> = Arc::new((Mutex::new(0), Condvar::new()));
+}
+
+
+fn set_caught_signal(signum: i32) {
+    //unsafe { CAUGHT = signum };
+    if let Ok(mut lock) = COND.0.try_lock() {
+        if *lock == 0 {
+            *lock = signum;
+            COND.1.notify_all();
+        }
+        drop(lock);
+    }
+}
+
+extern "C" fn sig_handler(signum: i32) {
+    set_caught_signal(signum);
+    //SIGNALED.call_once(|| set_caught_signal(signum));
+
+    unsafe {
+        //eprintln!("restoring default handler to signal: {}", signum);
+        let sig = ns::Signal::try_from(signum).unwrap();
+        ns::signal(sig, SIG_DFL).unwrap();
+    }
+}
+
+
+pub fn run(mut cmd: Command) -> i32 {
+    //let mut handlers = vec![];
+
+    let (lock, cond) = &*COND.clone();
+
+    for signum in HANDLED {
+        let sig = ns::Signal::try_from(signum).unwrap();
+        unsafe { ns::signal(sig, ns::SigHandler::Handler(sig_handler)) }.unwrap();
+        //handlers.push(hdl);
+    }
+
+    let mut proc: std::process::Child;
 
     match cmd.spawn() {
         Ok(child) => { proc = child; }
@@ -74,13 +137,35 @@ pub fn run(mut cmd: Command) -> i32 {
     }
 
 
+
     let pid = proc.id();
 
-    let caught = signals
-        .forever()
-        .next()
-        .expect("Failed waiting for a signal")
-        .signal;
+//    eprintln!("SELF: {}, CHILD: {}", std::process::id(), pid);
+
+    //let mut signals = register_signal_handlers();
+
+    // let caught = signals
+    //     .forever()
+    //     .next()
+    //     .expect("Failed waiting for a signal");
+    //
+
+    let mut caught = lock.lock().unwrap();
+    while *caught == 0 {
+        caught = cond.wait(caught).unwrap();
+    }
+    drop(lock);
+
+    let caught = caught.clone();
+
+    // let caught = loop {
+    //     if SIGNALED.is_completed() {
+    //         break unsafe { CAUGHT }
+    //     } else {
+    //         std::thread::sleep(Duration::from_millis(1));
+    //     }
+    // };
+    //
 
     match caught {
         SIGCHLD => {
@@ -89,12 +174,12 @@ pub fn run(mut cmd: Command) -> i32 {
         SIGINT => {
             send_then_kill(pid, SIGQUIT);
             block_wait(proc);
-            130
+            128 + SIGINT
         }
         SIGPIPE => {
             send_then_kill(pid, SIGQUIT);
             block_wait(proc);
-            141
+            128 + SIGPIPE
         }
         SIGHUP => {
             send_signal(pid, SIGQUIT);
@@ -103,7 +188,7 @@ pub fn run(mut cmd: Command) -> i32 {
         SIGTERM => {
             send_signal(pid, SIGTERM);
             block_wait(proc);
-            143
+            128 + SIGTERM
         }
         other => {
             send_signal(pid, other);

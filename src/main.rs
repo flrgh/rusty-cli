@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate lazy_static;
+
 mod cli;
 mod lua;
 mod nginx;
@@ -18,6 +21,11 @@ use clap::*;
 use std::process::{exit, Command};
 
 fn main() {
+    //use std::thread;
+    //use std::time::Duration;
+    //println!("{}", std::process::id());
+    //thread::sleep(Duration::from_secs(30));
+
     let app = letsgo();
 
     if let Err(e) = app {
