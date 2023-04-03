@@ -20,7 +20,6 @@ fn verify_template() {
     env.get_template("nginx.conf").unwrap();
 }
 
-
 pub fn render_config(vars: Vars) -> String {
     let mut env = Environment::new();
     env.add_template("nginx.conf", TEMPLATE).unwrap();

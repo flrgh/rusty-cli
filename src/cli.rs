@@ -2,8 +2,8 @@ use crate::lua::*;
 use crate::nginx::*;
 use crate::types::*;
 use crate::util::*;
-use clap::*;
 use clap::error::ErrorKind;
+use clap::*;
 use std::collections::{HashMap, VecDeque};
 use std::convert::{From, TryFrom};
 use std::env;
@@ -20,7 +20,11 @@ struct MissingIncludeFileError {
 
 impl Display for MissingIncludeFileError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "could not find {} include file '{}'", self.section, self.filename)
+        write!(
+            f,
+            "could not find {} include file '{}'",
+            self.section, self.filename
+        )
     }
 }
 
@@ -33,7 +37,6 @@ impl From<MissingIncludeFileError> for clap::error::Error {
 
 type IncludeResult = Result<(), MissingIncludeFileError>;
 
-
 fn confs(field: &mut Vec<String>, id: &str, m: &mut ArgMatches) {
     for line in consume_arg_strings(id, m) {
         field.push(normalize_conf_line(line));
@@ -45,21 +48,19 @@ fn includes(field: &mut Vec<String>, id: &str, m: &mut ArgMatches) -> IncludeRes
     let section = id.split_once('-').map_or(id, |t| t.0);
 
     for p in consume_arg_strings(id, m) {
-        let path = fs::canonicalize(p.clone()).map_err(|_| {
-            MissingIncludeFileError {
-                section: section.to_string(),
-                filename: p.clone(),
-            }
+        let path = fs::canonicalize(p.clone()).map_err(|_| MissingIncludeFileError {
+            section: section.to_string(),
+            filename: p.clone(),
         })?;
 
         let s = path.to_str().unwrap().to_string();
 
-        if ! path.is_file() {
+        if !path.is_file() {
             eprintln!("WTF {}", s);
             return Err(MissingIncludeFileError {
                 section: section.to_string(),
                 filename: p.clone(),
-            })
+            });
         }
         field.push(format!("include {};", s));
     }
@@ -89,7 +90,6 @@ fn normalize_conf_line(line: String) -> String {
     let line = line.trim_end_matches(';');
     format!("{};", line)
 }
-
 
 fn http_conf(app: &mut App, m: &mut ArgMatches) -> IncludeResult {
     app.http_conf.push(resolver(app));
@@ -474,7 +474,7 @@ impl From<App> for process::Command {
                 args.push(String::from("record"));
                 args.push(nginx);
                 args.append(&mut nginx_args);
-            },
+            }
             Runner::Stap(opts) => {
                 bin = String::from("stap");
                 args = vec![];
@@ -483,9 +483,9 @@ impl From<App> for process::Command {
                 }
                 args.push("-c".to_owned());
                 nginx_args.insert(0, nginx);
-                args.push(join_shell_args(nginx_args.iter_mut().map(|s| {
-                    s.as_str()
-                }).collect()));
+                args.push(join_shell_args(
+                    nginx_args.iter_mut().map(|s| s.as_str()).collect(),
+                ));
             }
             Runner::Valgrind(opts) => {
                 bin = "valgrind".to_owned();
@@ -495,7 +495,7 @@ impl From<App> for process::Command {
                 }
                 args.push(nginx);
                 args.append(&mut nginx_args);
-            },
+            }
             Runner::Gdb(opts) => {
                 bin = String::from("gdb");
                 if let Some(opts) = opts {
@@ -504,7 +504,7 @@ impl From<App> for process::Command {
                 args.push("--args".to_owned());
                 args.push(nginx);
                 args.append(&mut nginx_args);
-            },
+            }
             Runner::User(runner) => {
                 let mut user_args = split_shell_args(&runner);
                 bin = user_args.remove(0);
