@@ -44,12 +44,12 @@ Many of the core features are implemented, but there's a ways to go to acheive
         - [x] parse /etc/resolve.conf for defaults
         - [x] fallback to Google DNS (`8.8.8.8`, `8.8.4.4`)
 - execution customizations
-    - [ ] gdb (`--gdb` / `--gdb-opts <opts>`)
-    - [ ] override NGINX binary/path (`--nginx <path>`)
-    - [ ] stap (`--stap` / `--stap-opts <opts>`)
-    - [ ] valgrind (`--valgrind` / `--valgrind-opts <opts>`)
-    - [ ] Mozilla rr (`--rr`)
-    - [ ] generic user runner (`--user-runner <opts>`)
+    - [x] gdb (`--gdb` / `--gdb-opts <opts>`)
+    - [x] override NGINX binary/path (`--nginx <path>`)
+    - [x] stap (`--stap` / `--stap-opts <opts>`)
+    - [x] valgrind (`--valgrind` / `--valgrind-opts <opts>`)
+    - [x] Mozilla rr (`--rr`)
+    - [x] generic user runner (`--user-runner <opts>`)
 - cli flag commands
     - [x] help (`--help` | `-h`)
     - [x] version (`-V` | `-v`)
@@ -77,7 +77,7 @@ counts, there are some things that it does not care to replicate exactly:
 ### TODO
 
 - [ ] release tooling/automation
-- [ ] CI integration
+- [x] CI integration
 - [ ] testing
     - [ ] in-repo unit/functional tests
     - [ ] test against [resty-cli's test suite](https://github.com/openresty/resty-cli/tree/master/t)
