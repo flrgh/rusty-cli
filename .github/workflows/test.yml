@@ -36,8 +36,8 @@ jobs:
           - 1.21.4.1
         resty-cli:
           - v0.29
-#        openssl:
-#          - 1.1.1n
+        openssl:
+          - 1.1.1n
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup
@@ -72,12 +72,16 @@ jobs:
         uses: thibaultcha/setup-openresty@main
         with:
           version: ${{ matrix.openresty }}
+          openssl-version: ${{ matrix.openssl }}
           test-nginx: true
           opt: >
             --with-compat
             --with-pcre-jit
             --with-stream
             --with-threads
+            --with-http_ssl_module
+            --with-stream_ssl_module
+            --with-stream_ssl_preread_module
 
       - name: add OpenResty bin dirs to PATH
         run: |
