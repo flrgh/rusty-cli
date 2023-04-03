@@ -93,13 +93,11 @@ jobs:
             ./work/OpenSSL/doc \
             ./work/OpenSSL/test \
             ./work/OpenSSL/demos \
-            ./work/downloads/OpenSSL/demos \
-            ./work/downloads/OpenSSL/doc \
-            ./work/downloads/OpenSSL/test \
             ./work/downloads \
           || true
 
           du -sh ./work/*
+          find ./openresty
 
       - name: add OpenResty bin dirs to PATH
         run: |
@@ -119,6 +117,9 @@ jobs:
 
       - name: sanity 2
         run: ./target/debug/rusty-cli --help
+
+      - name: nginx info
+        run: nginx -V
 
       - name: prove
         run: prove -r t/ || true
