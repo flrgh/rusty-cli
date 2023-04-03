@@ -2,13 +2,11 @@ use libc::ESRCH;
 use signal_child::signal;
 use signal_child::signal::Signal;
 use signal_hook::consts::*;
-use signal_hook::flag;
-use signal_hook::iterator::*;
 
 use std::convert::TryFrom;
 
 use std::process::{Child, Command};
-use std::sync::atomic::AtomicBool;
+
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -16,24 +14,6 @@ use std::time::Duration;
 const HANDLED: [i32; 9] = [
     SIGINT, SIGTERM, SIGQUIT, SIGHUP, SIGUSR1, SIGUSR2, SIGWINCH, SIGPIPE, SIGCHLD,
 ];
-
-//type SignalIterator = SignalsInfo::<exfiltrator::WithOrigin>;
-type SignalIterator = SignalsInfo<exfiltrator::SignalOnly>;
-
-fn register_signal_handlers() -> SignalIterator {
-    let term = Arc::new(AtomicBool::new(false));
-
-    for sig in HANDLED {
-        if sig != SIGPIPE {
-            continue;
-        }
-        flag::register_conditional_default(sig, Arc::clone(&term))
-            .expect("Failed registering signal handler");
-        flag::register(sig, Arc::clone(&term)).expect("Failed registering signal handler");
-    }
-
-    SignalsInfo::new(HANDLED).expect("Failed to create signal iterator")
-}
 
 fn send_signal(pid: u32, signum: i32) {
     let sig = Signal::try_from(signum).expect("Invalid signal {signum}");
@@ -67,12 +47,6 @@ const SIG_DFL: nix::sys::signal::SigHandler = nix::sys::signal::SigHandler::SigD
 use std::sync::{Condvar, Mutex};
 //use std::sync::Arc;
 use nix::sys::signal as ns;
-
-use std::sync::Once;
-
-static mut CAUGHT: i32 = 0;
-
-static SIGNALED: Once = Once::new();
 
 lazy_static! {
     static ref COND: Arc<(Mutex<i32>, Condvar)> = Arc::new((Mutex::new(0), Condvar::new()));
@@ -111,12 +85,8 @@ pub fn run(mut cmd: Command) -> i32 {
         //handlers.push(hdl);
     }
 
-    let proc: std::process::Child;
-
-    match cmd.spawn() {
-        Ok(child) => {
-            proc = child;
-        }
+    let proc = match cmd.spawn() {
+        Ok(child) => child,
         Err(e) => {
             eprintln!(
                 "ERROR: failed to run command {}: {}",
@@ -125,7 +95,7 @@ pub fn run(mut cmd: Command) -> i32 {
             );
             return 2;
         }
-    }
+    };
 
     let pid = proc.id();
 
@@ -143,7 +113,6 @@ pub fn run(mut cmd: Command) -> i32 {
     while *caught == 0 {
         caught = cond.wait(caught).unwrap();
     }
-    drop(lock);
 
     let caught = *caught;
 

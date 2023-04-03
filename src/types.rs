@@ -17,7 +17,7 @@ pub fn tempdir(tpl: Option<&str>) -> io::Result<String> {
     unsafe {
         let res = mkdtemp(tpl.as_ptr() as *mut c_char);
 
-        if res == std::ptr::null_mut() {
+        if res.is_null() {
             let e = errno();
             return Err(io::Error::from_raw_os_error(e.0));
         }

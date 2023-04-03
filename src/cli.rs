@@ -440,7 +440,6 @@ pub(crate) struct App {
 
     pub(crate) runner: Runner,
 
-    pub(crate) cli_args: Vec<String>,
     pub(crate) version: bool,
 
     pub(crate) prefix: Option<String>,
