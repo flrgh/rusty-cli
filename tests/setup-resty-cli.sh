@@ -10,7 +10,7 @@ if [[ ! -d resty-cli ]]; then
         resty-cli
 fi
 
-cp -av ./resty-cli/t ./
+ln -sfv ./resty-cli/t ./t
 
 for patch in ./tests/resty-cli-patches/*; do
     patch --verbose \

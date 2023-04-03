@@ -35,7 +35,7 @@ jobs:
         openresty:
           - 1.21.4.1
         resty-cli:
-          - v0.29
+          - v0.28
         openssl:
           - 1.1.1n
     steps:
@@ -65,9 +65,6 @@ jobs:
             ${{ env.OPENRESTY_PREFIX }}
             work/
           key: v2::${{ runner.os }}-openresty-${{ matrix.openresty }}
-
-      - name: goddammit
-        run: echo ${{ steps.cache-openresty.outputs.cache-hit }}
 
       - name: setup OpenResty
         if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
