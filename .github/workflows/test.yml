@@ -98,8 +98,7 @@ jobs:
             ./work/downloads \
           || true
 
-          du -sh ./work/*
-          find ./openresty
+          du -sh ./work/OpenSSL/*
 
       - name: add OpenResty bin dirs to PATH
         run: |
