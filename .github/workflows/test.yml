@@ -90,6 +90,8 @@ jobs:
         run: |
           shopt -s dotglob
           rm -rf \
+            ./work/OpenResty \
+            ./work/OpenSSL/test \
             ./work/OpenSSL/doc \
             ./work/OpenSSL/test \
             ./work/OpenSSL/demos \
