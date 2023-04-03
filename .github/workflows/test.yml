@@ -66,8 +66,11 @@ jobs:
             work/lib/cpanm
           key: ${{ runner.os }}-openresty-${{ matrix.openresty }}
 
+      - name: goddammit
+        run: echo ${{ steps.cache-openresty.outputs.cache-hit }}
+
       - name: setup OpenResty
-        if: steps.cache-openresty.cache-hit != 'true'
+        if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
         id: setup-openresty
         uses: thibaultcha/setup-openresty@main
         with:
