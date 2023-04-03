@@ -31,15 +31,20 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-
       - name: install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-            toolchain: stable
-            override: true
-            components: rustfmt, clippy
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: cargo
 
       - name: cargo build
         uses: actions-rs/cargo@v1
         with:
           command: build
+
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
