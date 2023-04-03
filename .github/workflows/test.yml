@@ -99,8 +99,10 @@ jobs:
         with:
           command: build
 
+      - name: sanity
+        run: ./target/debug/rusty-cli --help
+
       - name: set OpenResty prefix
-        # https://github.com/thibaultcha/setup-openresty/blob/9de73a9ece161b12148d30ccd795bf9b09aba011/src/index.js#L23
         run: |
           echo OPENRESTY_PREFIX=${GITHUB_WORKSPACE}/openresty/${{ matrix.openresty }} >> $GITHUB_ENV
 
@@ -110,6 +112,8 @@ jobs:
         with:
           path: |
             ${{ env.OPENRESTY_PREFIX }}
+            work/downloads
+            work/lib/cpanm
           key: ${{ runner.os }}-openresty-${{ matrix.openresty }}
 
       - name: setup OpenResty
@@ -119,13 +123,11 @@ jobs:
         with:
           version: ${{ matrix.openresty }}
           test-nginx: true
-#         openssl-version: ${{ matrix.openssl }}
           opt: >
             --with-compat
             --with-pcre-jit
             --with-stream
             --with-threads
-#         --with-http_ssl_module
 
       - name: add OpenResty bin dirs to PATH
         run: |
@@ -143,10 +145,9 @@ jobs:
       - name: copy & patch files
         run: ./tests/setup-resty-cli.sh
 
+      - name: sanity 2
+        run: ./target/debug/rusty-cli --help
+
       - name: prove
         run: |
-          prove \
-            t/resty/bugs.t \
-            t/resty/console.t \
-            t/resty/signals.t \
-            t/resty/user-args.t
+          prove t/resty/bugs.t t/resty/console.t t/resty/signals.t t/resty/user-args.t
