@@ -71,7 +71,7 @@ jobs:
         run: echo ${{ steps.cache-openresty.outputs.cache-hit }}
 
       - name: setup OpenResty
-        if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
+        #        if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
         id: setup-openresty
         uses: thibaultcha/setup-openresty@main
         with:
@@ -92,7 +92,7 @@ jobs:
           echo ${OPENRESTY_PREFIX}/bin >> $GITHUB_PATH
           echo ${OPENRESTY_PREFIX}/luajit/bin >> $GITHUB_PATH
           echo ${OPENRESTY_PREFIX}/nginx/sbin >> $GITHUB_PATH
-          find ./work/ | grep -v openresty
+          find ./work/ | grep -vi openresty
 
       - name: checkout resty-cli repo
         uses: actions/checkout@v3
