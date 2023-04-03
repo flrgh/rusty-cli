@@ -64,7 +64,7 @@ jobs:
           path: |
             ${{ env.OPENRESTY_PREFIX }}
             work/
-          key: v1::${{ runner.os }}-openresty-${{ matrix.openresty }}
+          key: v2::${{ runner.os }}-openresty-${{ matrix.openresty }}
 
       - name: goddammit
         run: echo ${{ steps.cache-openresty.outputs.cache-hit }}
@@ -95,6 +95,7 @@ jobs:
             ./work/OpenSSL/doc \
             ./work/OpenSSL/test \
             ./work/OpenSSL/demos \
+            ./work/OpenSSL/fuzz \
             ./work/downloads \
           || true
 
