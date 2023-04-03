@@ -1,13 +1,10 @@
 use libc::ESRCH;
+use nix::sys::signal as ns;
 use signal_child::signal;
 use signal_child::signal::Signal;
 use signal_hook::consts::*;
-
 use std::convert::TryFrom;
-
 use std::process::{Child, Command};
-
-use nix::sys::signal as ns;
 use std::sync::Arc;
 use std::sync::{Condvar, Mutex};
 use std::thread;

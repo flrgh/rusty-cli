@@ -1,8 +1,6 @@
 use errno::errno;
 use libc::{c_char, mkdtemp};
-
 use std::ffi;
-
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use std::fs;
 use std::io;
