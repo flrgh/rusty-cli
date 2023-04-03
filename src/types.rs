@@ -1,16 +1,16 @@
-use clap;
+
 use errno::errno;
-use libc::{c_char, c_int, int8_t, mkdtemp, size_t, PT_NULL};
-use mktemp::Temp;
+use libc::{c_char, mkdtemp};
+
 use std::ffi;
-use std::ffi::CStr;
+
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use std::fs;
 use std::io;
 use std::net;
 use std::path::PathBuf;
 use std::string::ToString;
-use strum_macros;
+
 
 const MKDTEMP_TEMPLATE: &str = "/tmp/resty_XXXXXX";
 

@@ -59,7 +59,7 @@ fn includes(field: &mut Vec<String>, id: &str, m: &mut ArgMatches) -> IncludeRes
             eprintln!("WTF {}", s);
             return Err(MissingIncludeFileError {
                 section: section.to_string(),
-                filename: p.clone(),
+                filename: p,
             });
         }
         field.push(format!("include {};", s));
@@ -451,12 +451,12 @@ impl From<App> for process::Command {
         let root = app.prefix.unwrap();
 
         // resty CLI always adds a trailing slash
-        let prefix = format!("{}/", root.trim_end_matches("/"));
+        let prefix = format!("{}/", root.trim_end_matches('/'));
 
         let nginx = app.nginx.to_str().unwrap().to_owned();
         let mut nginx_args = vec![
             String::from("-p"),
-            String::from(prefix),
+            prefix,
             String::from("-c"),
             String::from("conf/nginx.conf"),
         ];

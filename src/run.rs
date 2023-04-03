@@ -4,9 +4,9 @@ use signal_child::signal::Signal;
 use signal_hook::consts::*;
 use signal_hook::flag;
 use signal_hook::iterator::*;
-use signal_hook::low_level as ll;
+
 use std::convert::TryFrom;
-use std::io::Read;
+
 use std::process::{Child, Command};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -20,8 +20,8 @@ const HANDLED: [i32; 9] = [
 //type SignalIterator = SignalsInfo::<exfiltrator::WithOrigin>;
 type SignalIterator = SignalsInfo<exfiltrator::SignalOnly>;
 
-use std::os::unix::net::UnixStream;
-use std::os::unix::process::CommandExt;
+
+
 
 fn register_signal_handlers() -> SignalIterator {
     let term = Arc::new(AtomicBool::new(false));
@@ -35,7 +35,7 @@ fn register_signal_handlers() -> SignalIterator {
         flag::register(sig, Arc::clone(&term)).expect("Failed registering signal handler");
     }
 
-    SignalsInfo::new(&HANDLED).expect("Failed to create signal iterator")
+    SignalsInfo::new(HANDLED).expect("Failed to create signal iterator")
 }
 
 fn send_signal(pid: u32, signum: i32) {
@@ -67,12 +67,12 @@ fn block_wait(mut proc: Child) -> Option<i32> {
 
 const SIG_DFL: nix::sys::signal::SigHandler = nix::sys::signal::SigHandler::SigDfl;
 
-use std::sync::atomic::Ordering;
+
 use std::sync::{Condvar, Mutex};
 //use std::sync::Arc;
 use nix::sys::signal as ns;
-use signal_hook_registry::register;
-use std::cell::Cell;
+
+
 use std::sync::Once;
 
 static mut CAUGHT: i32 = 0;
@@ -116,7 +116,7 @@ pub fn run(mut cmd: Command) -> i32 {
         //handlers.push(hdl);
     }
 
-    let mut proc: std::process::Child;
+    let proc: std::process::Child;
 
     match cmd.spawn() {
         Ok(child) => {
@@ -126,7 +126,7 @@ pub fn run(mut cmd: Command) -> i32 {
             eprintln!(
                 "ERROR: failed to run command {}: {}",
                 cmd.get_program().to_str().unwrap(),
-                e.to_string()
+                e
             );
             return 2;
         }
@@ -150,7 +150,7 @@ pub fn run(mut cmd: Command) -> i32 {
     }
     drop(lock);
 
-    let caught = caught.clone();
+    let caught = *caught;
 
     // let caught = loop {
     //     if SIGNALED.is_completed() {

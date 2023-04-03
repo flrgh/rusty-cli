@@ -55,7 +55,7 @@ fn main() {
     };
 
     let conf_path = prefix.conf.join("nginx.conf");
-    let mut fh = std::fs::File::create(&conf_path).unwrap();
+    let mut fh = std::fs::File::create(conf_path).unwrap();
     fh.write_all(render_config(vars).as_bytes()).unwrap();
     fh.flush().unwrap();
     drop(fh);
