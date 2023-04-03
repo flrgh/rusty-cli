@@ -1,0 +1,45 @@
+name: test
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - '*'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: cache
+        uses: actions/cache@v3
+        id: build-cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+
+      - name: install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            override: true
+            components: rustfmt, clippy
+
+      - name: cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
