@@ -15,25 +15,19 @@ defaults:
 
 # https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md
 jobs:
-  init:
-    uses: ./.github/workflows/toolchain-init.yml
-    secrets: inherit
-
   check:
-    needs: init
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup.yml
 
       - uses: actions-rs/cargo@v1
         with:
           command: check
 
   rustfmt:
-    needs: init
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup.yml
 
       - run: rustup component add rustfmt
 
@@ -43,10 +37,9 @@ jobs:
           args: --all -- --check
 
   clippy:
-    needs: init
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup.yml
 
       - run: rustup component add clippy
 
