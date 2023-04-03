@@ -44,7 +44,52 @@ jobs:
         with:
           command: build
 
+  test:
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    steps:
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
+
+  compat:
+    name: resty-cli compat
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        openresty:
+          - 1.21.4.1
+        resty-cli:
+          - v0.29
+#        openssl:
+#          - 1.1.1n
+
+    steps:
+      - name: setup OpenResty
+        id: setup-openresty
+        uses: thibaultcha/setup-openresty@main
+        with:
+          version: ${{ matrix.openresty }}
+          test-nginx: true
+#         openssl-version: ${{ matrix.openssl }}
+          opt: >
+            --with-compat
+            --with-pcre-jit
+            --with-stream
+            --with-threads
+#         --with-http_ssl_module
+
+      - name: checkout resty-cli repo
+        uses: actions/checkout@v3
+        with:
+          repository: openresty/resty-cli
+          ref: ${{ matrix.resty-cli }}
+          path: resty-cli
+
+      - name: copy & patch files
+        run: ./tests/setup-resty-cli.sh
+
+      - name: prove
+        run: prove -r ./t
