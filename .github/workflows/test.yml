@@ -89,19 +89,17 @@ jobs:
       - name: cleanup
         run: |
           shopt -s dotglob
-          du -sh ./*
-
           rm -rf \
-            /work/OpenSSL/doc \
-            /work/OpenSSL/test \
-            /work/OpenSSL/demos \
-            /work/downloads/OpenSSL/demos \
-            /work/downloads/OpenSSL/doc \
-            /work/downloads/OpenSSL/test \
+            ./work/OpenSSL/doc \
+            ./work/OpenSSL/test \
+            ./work/OpenSSL/demos \
+            ./work/downloads/OpenSSL/demos \
+            ./work/downloads/OpenSSL/doc \
+            ./work/downloads/OpenSSL/test \
+            ./work/downloads \
           || true
 
-          du -sh ./*
-          find ./work
+          du -sh ./work/*
 
       - name: add OpenResty bin dirs to PATH
         run: |
