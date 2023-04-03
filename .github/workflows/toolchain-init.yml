@@ -1,0 +1,43 @@
+name: cargo-cache
+
+on:
+  workflow_call:
+    inputs:
+      runner-os:
+        required: true
+        type: string
+        default: ubuntu-latest
+    secrets:
+      token:
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  cargo-cache:
+    runs-on: ${{ inputs.runner-os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: restore cache
+        uses: actions/cache@v3
+        id: toolchain-cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: install rust toolchain
+        if: ${{ steps.toolchain-cache.cache-hit != 'true' }}
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: cargo

@@ -45,7 +45,7 @@ jobs:
           command: build
 
   test:
-    needs: [ build ]
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -69,7 +69,7 @@ jobs:
 
   compat:
     name: resty-cli compat
-    needs: [ build ]
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -117,7 +117,7 @@ jobs:
           key: ${{ runner.os }}-openresty-${{ matrix.openresty }}
 
       - name: setup OpenResty
-        if: ${{ steps.cache-openresty.cache-hit != 'true' }}
+        if: steps.cache-openresty.cache-hit != 'true'
         id: setup-openresty
         uses: thibaultcha/setup-openresty@main
         with:
