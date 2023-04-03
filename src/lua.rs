@@ -147,7 +147,7 @@ fn insert_lua_args(buf: &mut Buf, file: &Option<String>, args: &Vec<String>) {
         _ => 0,
     };
 
-    let prog = env::args().nth(0).unwrap();
+    let prog = env::args().next().unwrap();
     let all_args = env::args().len();
 
     let pos: i32 = (all_args - lua_args).try_into().unwrap();

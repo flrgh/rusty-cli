@@ -1,16 +1,14 @@
-use mktemp::Temp;
+use errno::errno;
+use libc::{c_char, mkdtemp};
+
+use std::ffi;
+
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use std::fs;
+use std::io;
+use std::net;
 use std::path::PathBuf;
 use std::string::ToString;
-use strum_macros;
-use clap;
-use std::net;
-use libc::{mkdtemp, c_int, size_t, int8_t, PT_NULL, c_char};
-use errno::errno;
-use std::io;
-use std::ffi;
-use std::ffi::CStr;
 
 const MKDTEMP_TEMPLATE: &str = "/tmp/resty_XXXXXX";
 
@@ -19,9 +17,9 @@ pub fn tempdir(tpl: Option<&str>) -> io::Result<String> {
     unsafe {
         let res = mkdtemp(tpl.as_ptr() as *mut c_char);
 
-        if res == std::ptr::null_mut() {
+        if res.is_null() {
             let e = errno();
-            return Err(io::Error::from_raw_os_error(e.0))
+            return Err(io::Error::from_raw_os_error(e.0));
         }
 
         Ok(ffi::CStr::from_ptr(res).to_str().unwrap().to_string())
@@ -29,7 +27,7 @@ pub fn tempdir(tpl: Option<&str>) -> io::Result<String> {
 
         //Ok(std::ffi::CString::from_raw(res).to_str().unwrap().to_owned())
     }
-//    todo!();
+    //    todo!();
 }
 
 #[test]
@@ -38,7 +36,6 @@ fn pls_dont_die() {
     assert!(tempdir(Some("/tmp/weeee")).is_err());
     assert!(tempdir(None).is_ok());
 }
-
 
 fn trim_brackets(s: &str) -> &str {
     s.strip_prefix('[')
@@ -67,19 +64,22 @@ impl std::str::FromStr for IpAddr {
 
 #[test]
 fn test_ip_addr_from_str() {
-    assert_eq!(Ok(IpAddr("[::1]".to_string())),
-              "[::1]".parse::<IpAddr>());
+    assert_eq!(Ok(IpAddr("[::1]".to_string())), "[::1]".parse::<IpAddr>());
 
-    assert_eq!(Ok(IpAddr("[2003:dead:beef:4dad:23:46:bb:101]".to_string())),
-               "[2003:dead:beef:4dad:23:46:bb:101]".parse::<IpAddr>());
+    assert_eq!(
+        Ok(IpAddr("[2003:dead:beef:4dad:23:46:bb:101]".to_string())),
+        "[2003:dead:beef:4dad:23:46:bb:101]".parse::<IpAddr>()
+    );
 
-    assert_eq!(Ok(IpAddr("127.0.0.1".to_string())),
-               "127.0.0.1".parse::<IpAddr>());
+    assert_eq!(
+        Ok(IpAddr("127.0.0.1".to_string())),
+        "127.0.0.1".parse::<IpAddr>()
+    );
 }
 
-
-
-#[derive(clap::ValueEnum, Clone, Debug, Default, strum_macros::Display, strum_macros::EnumString)]
+#[derive(
+    clap::ValueEnum, Clone, Debug, Default, strum_macros::Display, strum_macros::EnumString,
+)]
 #[clap(rename_all = "lower")]
 #[strum(serialize_all = "lowercase")]
 pub(crate) enum LogLevel {
@@ -127,7 +127,6 @@ impl From<&JitCmd> for String {
     }
 }
 
-
 pub(crate) struct Prefix {
     pub(crate) root: PathBuf,
     pub(crate) conf: PathBuf,
@@ -156,10 +155,7 @@ impl Prefix {
         fs::create_dir_all(&conf)?;
         fs::create_dir_all(root.join("logs"))?;
 
-        Ok(Prefix {
-            root,
-            conf,
-        })
+        Ok(Prefix { root, conf })
     }
 }
 

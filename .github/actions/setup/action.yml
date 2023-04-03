@@ -1,0 +1,39 @@
+name: setup
+
+inputs:
+  build:
+    type: boolean
+    default: false
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v3
+
+    - name: restore cache
+      uses: actions/cache@v3
+      id: toolchain-cache
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: install rust toolchain
+      if: ${{ steps.toolchain-cache.cache-hit != 'true' }}
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+        components: cargo
+
+    - name: cargo build
+      if: ${{ inputs.build }}
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
