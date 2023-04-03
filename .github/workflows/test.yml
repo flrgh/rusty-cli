@@ -67,11 +67,41 @@ jobs:
           - v0.29
 #        openssl:
 #          - 1.1.1n
-
     steps:
       - uses: actions/checkout@v3
 
+      - name: cache
+        uses: actions/cache@v3
+        id: build-cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+
+      - name: set OpenResty prefix
+        # https://github.com/thibaultcha/setup-openresty/blob/9de73a9ece161b12148d30ccd795bf9b09aba011/src/index.js#L23
+        run: |
+          echo OPENRESTY_PREFIX=${{ env.GITHUB_WORKSPACE }}/openresty/${{ matrix.openresty }} >> $GITHUB_ENV
+
+      - name: cache OpenResty
+        uses: actions/cache@v3
+        id: cache-openresty
+        with:
+          path: |
+            ${{ env.OPENRESTY_PREFIX }}
+          key: ${{ runner.os }}-openresty-${{ matrix.openresty }}
+
       - name: setup OpenResty
+        if: ${{ steps.cache-openresty.cache-hit != 'true' }}
         id: setup-openresty
         uses: thibaultcha/setup-openresty@main
         with:
@@ -87,9 +117,9 @@ jobs:
 
       - name: add OpenResty bin dirs to PATH
         run: |
-          echo ${{ steps.setup-openresty.outputs.OPENRESTY_PREFIX }}/bin >> $GITHUB_PATH
-          echo ${{ steps.setup-openresty.outputs.OPENRESTY_PREFIX }}/luajit/bin >> $GITHUB_PATH
-          echo ${{ steps.setup-openresty.outputs.OPENRESTY_PREFIX }}/nginx/sbin >> $GITHUB_PATH
+          echo ${{ env.OPENRESTY_PREFIX }}/bin >> $GITHUB_PATH
+          echo ${{ env.OPENRESTY_PREFIX }}/luajit/bin >> $GITHUB_PATH
+          echo ${{ env.OPENRESTY_PREFIX }}/nginx/sbin >> $GITHUB_PATH
 
       - name: checkout resty-cli repo
         uses: actions/checkout@v3
