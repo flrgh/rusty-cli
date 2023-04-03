@@ -520,176 +520,6 @@ impl From<App> for process::Command {
     }
 }
 
-//use std::string::ToString;
-//use strum_macros;
-
-//#[derive(Debug, strum_macros::EnumString)]
-//#[strum(serialize_all = "lowercase")]
-//enum CliArg {
-//    #[strum(serialize = "-h", serialize = "--help")]
-//    Help,
-//
-//    #[strum(serialize = "-v", serialize = "-V")]
-//    Version,
-//
-//    #[strum(serialize = "-I")]
-//    LuaPathInclude,
-//
-//    #[strum(serialize = "-e")]
-//    LuaExpression,
-//
-//    #[strum(serialize = "-l")]
-//    LuaRequire,
-//
-//    #[strum(serialize = "-j")]
-//    Jit,
-//
-//    #[strum(serialize = "-c")]
-//    ConnectionLimit,
-//
-//    #[strum(serialize = "--ns")]
-//    NameServer,
-//
-//    #[strum(serialize = "--shdict")]
-//    Dict,
-//
-//    #[strum(serialize = "--nginx")]
-//    Nginx,
-//
-//    #[strum(serialize = "--http-conf")]
-//    HttpConf,
-//
-//    #[strum(serialize = "--main-conf")]
-//    MainConf,
-//
-//    #[strum(serialize = "--stream-conf")]
-//    StreamConf,
-//
-//    #[strum(serialize = "--http-include")]
-//    HttpInclude,
-//
-//    #[strum(serialize = "--main-include")]
-//    MainInclude,
-//
-//    #[strum(serialize = "--no-stream")]
-//    NoStream,
-//
-//    #[strum(serialize = "--errlog-level")]
-//    ErrLogLevel,
-//
-//    #[strum(serialize = "--valgrind")]
-//    Valgrind,
-//
-//    #[strum(serialize = "--valgrind-opts")]
-//    ValgrindOpts,
-//
-//    #[strum(serialize = "--resolve-ipv6")]
-//    ResolveIPv6,
-//
-//    #[strum(serialize = "--user-runner")]
-//    UserRunner,
-//
-//    #[strum(serialize = "--stap")]
-//    Stap,
-//
-//    #[strum(serialize = "--stap-opts")]
-//    StapOpts,
-//
-//    #[strum(serialize = "--gdb")]
-//    GDB,
-//
-//    #[strum(serialize = "--gdb-opts")]
-//    GDBOpts,
-//
-//    #[strum(serialize = "--rr")]
-//    RR,
-//
-//    #[strum(serialize = "--")]
-//    EndOfArgs,
-//}
-//
-//impl CliArg {
-//    fn takes_value(&self) -> bool {
-//        use CliArg::*;
-//        match self {
-//            LuaPathInclude | LuaExpression | LuaRequire | Jit => true,
-//            ConnectionLimit | ErrLogLevel | NameServer => true,
-//            Nginx | Dict => true,
-//            HttpConf | MainConf | StreamConf => true,
-//            HttpInclude | MainInclude => true,
-//            ValgrindOpts | StapOpts | GDBOpts | UserRunner => true,
-//            _ => false,
-//        }
-//    }
-//
-//}
-//
-//
-//pub(crate) enum InputError {
-//    UnknownArg(String),
-//    MissingValue(String),
-//    InvalidArgValue(String),
-//    UnexpectedValue(String),
-//}
-//
-//impl std::fmt::Display for InputError {
-//    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//        match self {
-//            Self::UnknownArg(arg)      => write!(f, "Unknown argument: {}", arg),
-//            Self::MissingValue(arg)    => write!(f, "Missing value for argument: {}", arg),
-//            Self::InvalidArgValue(arg) => write!(f, "Invalid value for argument: {}", arg),
-//            Self::UnexpectedValue(arg) => write!(f, "Argument takes no value: {}", arg),
-//        }
-//    }
-//}
-//
-//
-//impl TryFrom<Vec<&str>> for App {
-//    type Error = InputError;
-//
-//    fn try_from(args: Vec<&str>) -> std::result::Result<Self, Self::Error> {
-//        use InputError::*;
-//
-//        let mut app = Self::default();
-//        let mut args: VecDeque<&str> = args.into();
-//
-//        loop {
-//            let mut arg = match args.pop_front() {
-//                Some(arg) => arg,
-//                None => break,
-//            };
-//
-//            let mut arg_value: Option<&str> = None;
-//
-//            if arg.contains("=") {
-//                let (a, b) = arg.split_once("=").unwrap();
-//                if b == "" {
-//                    return Err(MissingValue(a.to_owned()))
-//                }
-//
-//                arg = a;
-//                arg_value = Some(b);
-//            };
-//
-//            let cli_arg = CliArg::try_from(arg).map_err(|_| {
-//                UnknownArg(arg.to_owned())
-//            })?;
-//
-//            if cli_arg.takes_value() {
-//                let value = arg_value
-//                    .or_else(|| args.pop_front())
-//                    .ok_or_else(|| MissingValue(arg.to_string()))?;
-//
-//            } else if arg_value.is_some() {
-//                return Err(UnexpectedValue(arg.to_owned()))
-//            }
-//        }
-//
-//
-//        todo!();
-//    }
-//}
-
 #[derive(Default, Debug)]
 pub(crate) enum Runner {
     #[default]
@@ -745,8 +575,6 @@ impl TryFrom<env::Args> for App {
                 continue;
             }
 
-            //println!("arg: {}, action: {:?}", a.get_id(), a.get_action());
-
             let takes_value = match (a.get_id().as_str(), a.get_action()) {
                 // for some ungodly reason, -h|--help has a SetValue action
                 ("help", _) => false,
@@ -801,11 +629,9 @@ impl TryFrom<env::Args> for App {
             // flag or option
             } else if elem.starts_with('-') {
                 if takes_value(&elem) {
-                    //println!("{} takes a value in clap", elem);
                     clap_args.push(elem);
                     clap_args.extend(args.pop_front());
                 } else {
-                    //println!("{} does not take a value in clap", elem);
                     clap_args.push(elem);
                 }
 
@@ -819,14 +645,7 @@ impl TryFrom<env::Args> for App {
 
         app.lua_args.extend(args);
 
-        //println!("Final args: {:?}", clap_args);
-
-        // clap has a `get_matches_from` and a `get_matches_mut`, but no
-        // `get_matches_from_mut`, so here we are.
-        let mut m = match c.try_get_matches_from_mut(clap_args) {
-            Ok(m) => m,
-            Err(e) => return Err(e),
-        };
+        let mut m = c.try_get_matches_from_mut(clap_args)?;
 
         app.nginx = find_nginx_bin(consume_arg_string("nginx-path", &mut m));
         app.version = consume_flag("version", &mut m);

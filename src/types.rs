@@ -23,16 +23,11 @@ pub fn tempdir(tpl: Option<&str>) -> io::Result<String> {
         }
 
         Ok(ffi::CStr::from_ptr(res).to_str().unwrap().to_string())
-        //Ok("yes".to_string())
-
-        //Ok(std::ffi::CString::from_raw(res).to_str().unwrap().to_owned())
     }
-    //    todo!();
 }
 
 #[test]
 fn pls_dont_die() {
-    //assert_eq!("abcd".to_string(), tempdir(None).unwrap());
     assert!(tempdir(Some("/tmp/weeee")).is_err());
     assert!(tempdir(None).is_ok());
 }

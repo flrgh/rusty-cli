@@ -14,18 +14,12 @@ use crate::nginx::*;
 use crate::run::run;
 use crate::types::*;
 
+use clap::*;
 use std::env;
 use std::io::Write as IoWrite;
-//use clap::{Parser, crate_version, CommandFactory};
-use clap::*;
 use std::process::{exit, Command};
 
 fn main() {
-    //use std::thread;
-    //use std::time::Duration;
-    //println!("{}", std::process::id());
-    //thread::sleep(Duration::from_secs(30));
-
     let app = letsgo();
 
     if let Err(e) = app {
