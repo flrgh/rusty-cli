@@ -144,4 +144,9 @@ jobs:
         run: ./tests/setup-resty-cli.sh
 
       - name: prove
-        run: prove -r ./t || true
+        run: |
+          prove \
+            t/resty/bugs.t \
+            t/resty/console.t \
+            t/resty/signals.t \
+            t/resty/user-args.t
