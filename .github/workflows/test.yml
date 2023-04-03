@@ -63,15 +63,14 @@ jobs:
         with:
           path: |
             ${{ env.OPENRESTY_PREFIX }}
-            work/downloads
-            work/lib/cpanm
-          key: ${{ runner.os }}-openresty-${{ matrix.openresty }}
+            work/
+          key: v1::${{ runner.os }}-openresty-${{ matrix.openresty }}
 
       - name: goddammit
         run: echo ${{ steps.cache-openresty.outputs.cache-hit }}
 
       - name: setup OpenResty
-        #        if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
+        if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
         id: setup-openresty
         uses: thibaultcha/setup-openresty@main
         with:
@@ -87,12 +86,28 @@ jobs:
             --with-stream_ssl_module
             --with-stream_ssl_preread_module
 
+      - name: cleanup
+        run: |
+          shopt -s dotglob
+          du -sh ./*
+
+          rm -rf \
+            /work/OpenSSL/doc \
+            /work/OpenSSL/test \
+            /work/OpenSSL/demos \
+            /work/downloads/OpenSSL/demos \
+            /work/downloads/OpenSSL/doc \
+            /work/downloads/OpenSSL/test \
+          || true
+
+          du -sh ./*
+          find ./work
+
       - name: add OpenResty bin dirs to PATH
         run: |
           echo ${OPENRESTY_PREFIX}/bin >> $GITHUB_PATH
           echo ${OPENRESTY_PREFIX}/luajit/bin >> $GITHUB_PATH
           echo ${OPENRESTY_PREFIX}/nginx/sbin >> $GITHUB_PATH
-          find ./work/ | grep -vi openresty
 
       - name: checkout resty-cli repo
         uses: actions/checkout@v3
