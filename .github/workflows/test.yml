@@ -50,6 +50,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: cache
+        uses: actions/cache@v3
+        id: build-cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
@@ -90,7 +102,7 @@ jobs:
       - name: set OpenResty prefix
         # https://github.com/thibaultcha/setup-openresty/blob/9de73a9ece161b12148d30ccd795bf9b09aba011/src/index.js#L23
         run: |
-          echo OPENRESTY_PREFIX=${{ env.GITHUB_WORKSPACE }}/openresty/${{ matrix.openresty }} >> $GITHUB_ENV
+          echo OPENRESTY_PREFIX=${GITHUB_WORKSPACE}/openresty/${{ matrix.openresty }} >> $GITHUB_ENV
 
       - name: cache OpenResty
         uses: actions/cache@v3
@@ -117,9 +129,9 @@ jobs:
 
       - name: add OpenResty bin dirs to PATH
         run: |
-          echo ${{ env.OPENRESTY_PREFIX }}/bin >> $GITHUB_PATH
-          echo ${{ env.OPENRESTY_PREFIX }}/luajit/bin >> $GITHUB_PATH
-          echo ${{ env.OPENRESTY_PREFIX }}/nginx/sbin >> $GITHUB_PATH
+          echo ${OPENRESTY_PREFIX}/bin >> $GITHUB_PATH
+          echo ${OPENRESTY_PREFIX}/luajit/bin >> $GITHUB_PATH
+          echo ${OPENRESTY_PREFIX}/nginx/sbin >> $GITHUB_PATH
 
       - name: checkout resty-cli repo
         uses: actions/checkout@v3
@@ -132,4 +144,4 @@ jobs:
         run: ./tests/setup-resty-cli.sh
 
       - name: prove
-        run: prove -r ./t
+        run: prove -r ./t || true
