@@ -16,7 +16,7 @@ defaults:
 # https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md
 jobs:
   init:
-    uses: .github/workflows/toolchain-init.yml
+    uses: ./.github/workflows/toolchain-init.yml
     secrets: inherit
 
   check:
