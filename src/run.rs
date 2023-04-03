@@ -20,9 +20,6 @@ const HANDLED: [i32; 9] = [
 //type SignalIterator = SignalsInfo::<exfiltrator::WithOrigin>;
 type SignalIterator = SignalsInfo<exfiltrator::SignalOnly>;
 
-
-
-
 fn register_signal_handlers() -> SignalIterator {
     let term = Arc::new(AtomicBool::new(false));
 
@@ -67,11 +64,9 @@ fn block_wait(mut proc: Child) -> Option<i32> {
 
 const SIG_DFL: nix::sys::signal::SigHandler = nix::sys::signal::SigHandler::SigDfl;
 
-
 use std::sync::{Condvar, Mutex};
 //use std::sync::Arc;
 use nix::sys::signal as ns;
-
 
 use std::sync::Once;
 

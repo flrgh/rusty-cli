@@ -1,4 +1,3 @@
-
 use errno::errno;
 use libc::{c_char, mkdtemp};
 
@@ -10,7 +9,6 @@ use std::io;
 use std::net;
 use std::path::PathBuf;
 use std::string::ToString;
-
 
 const MKDTEMP_TEMPLATE: &str = "/tmp/resty_XXXXXX";
 
