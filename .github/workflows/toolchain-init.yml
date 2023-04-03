@@ -11,7 +11,7 @@ defaults:
     shell: bash
 
 jobs:
-  cargo-cache:
+  init:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
