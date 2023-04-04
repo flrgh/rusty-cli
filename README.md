@@ -80,4 +80,4 @@ counts, there are some things that it does not care to replicate exactly:
 - [x] CI integration
 - [ ] testing
     - [ ] in-repo unit/functional tests
-    - [ ] test against [resty-cli's test suite](https://github.com/openresty/resty-cli/tree/master/t)
+    - [x] test against [resty-cli's test suite](https://github.com/openresty/resty-cli/tree/master/t)
