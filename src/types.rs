@@ -70,6 +70,110 @@ fn test_ip_addr_from_str() {
     );
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(crate) struct Shdict(String);
+
+impl Display for Shdict {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Shdict {
+    pub(crate) fn to_nginx(&self) -> String {
+        format!("lua_shared_dict {};", self.0)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(crate) struct InvalidShdict(String);
+
+impl From<&str> for InvalidShdict {
+    fn from(input: &str) -> Self {
+        InvalidShdict(input.to_string())
+    }
+}
+
+impl Display for InvalidShdict {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for InvalidShdict {}
+
+impl std::str::FromStr for Shdict {
+    type Err = InvalidShdict;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.starts_with(' ') || s.ends_with(' ') {
+            return Err(InvalidShdict::from(s));
+        }
+
+        let mut parts = s.split_whitespace();
+
+        let name = parts.next().ok_or_else(|| InvalidShdict::from(s))?;
+        let size = parts.next().ok_or_else(|| InvalidShdict::from(s))?;
+
+        //dbg!(s, name, size, &parts);
+
+        if let Some(_) = parts.next() {
+            return Err(InvalidShdict::from(s));
+        }
+
+        // yeah this is all kinda ugly, but I don't want the regex crate
+
+        for c in name.chars() {
+            if !c.is_ascii_alphanumeric() && c != '_' {
+                return Err(InvalidShdict::from(s));
+            }
+        }
+
+        size.strip_suffix(['k', 'K', 'm', 'M'])
+            .unwrap_or(size)
+            .parse::<u32>()
+            .map_err(|_| InvalidShdict::from(s))?;
+
+        Ok(Shdict(format!("{} {}", name, size)))
+    }
+}
+
+#[test]
+fn shdict_from_str() {
+    fn shdict(name: &str, size: &str) -> Shdict {
+        Shdict(format!("{} {}", name, size))
+    }
+
+    fn must_parse(input: &str, (name, size): (&str, &str)) {
+        assert_eq!(Ok(shdict(name, size)), input.parse::<Shdict>())
+    }
+
+    fn must_not_parse(s: &str) {
+        assert_eq!(Err(InvalidShdict::from(s)), s.parse::<Shdict>())
+    }
+
+    must_parse("foo_1 10k", ("foo_1", "10k"));
+    must_parse("foo_1 10K", ("foo_1", "10K"));
+    must_parse("foo_1 10m", ("foo_1", "10m"));
+    must_parse("foo_1 10M", ("foo_1", "10M"));
+    must_parse("cats_dogs   20000", ("cats_dogs", "20000"));
+
+    must_not_parse("");
+    must_not_parse("foo 10 extra");
+    must_not_parse("foo 10 extra extra");
+    must_not_parse("- 10");
+    must_not_parse("   foo 10");
+    must_not_parse("foo");
+    must_not_parse("foo f");
+    must_not_parse("foo 10.0");
+    must_not_parse("foo 10b");
+    must_not_parse("foo 10g");
+    must_not_parse("foo 10km");
+    must_not_parse("fo--o 10k");
+    must_not_parse("foo -10k");
+    must_not_parse("foo -10");
+}
+
 #[derive(
     clap::ValueEnum, Clone, Debug, Default, strum_macros::Display, strum_macros::EnumString,
 )]

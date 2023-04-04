@@ -16,6 +16,7 @@ use crate::types::*;
 
 use clap::*;
 use std::env;
+use std::error::Error;
 use std::io::Write as IoWrite;
 use std::process::{exit, Command};
 
@@ -23,7 +24,59 @@ fn main() {
     let app = letsgo();
 
     if let Err(e) = app {
-        e.exit()
+        use clap::error::ErrorKind::*;
+
+        if e.kind() == DisplayHelp {
+            e.exit()
+        }
+
+        // uggggggghhhhhh
+        //
+        // resty-cli uses `die` indiscriminantly, which makes it a PITA to
+        // determine what exit code to use
+
+        let ec = match e.kind() {
+            InvalidValue => 255,
+            WrongNumberOfValues => 255,
+            TooManyValues => 255,
+            TooFewValues => 255,
+            MissingRequiredArgument => 255,
+            ValueValidation => 255,
+
+            // yup, resty-cli returns 25 (ENOTTY) for mutually-exclusive
+            // arguments
+            //
+            // not on purpose though, it's just a side effect of errno
+            // having been set from a previous and unrelated error
+            ArgumentConflict => 25,
+
+            InvalidUtf8 => 255,
+            Io => 2,
+
+            UnknownArgument => 1,
+            DisplayHelp => 0,
+
+            DisplayHelpOnMissingArgumentOrSubcommand => unreachable!(),
+            Format => unreachable!(),
+
+            DisplayVersion => unreachable!(),
+            MissingSubcommand => unreachable!(),
+            InvalidSubcommand => unreachable!(),
+            NoEquals => unreachable!(),
+            _ => unreachable!(),
+        };
+
+        //dbg!(&e);
+
+        // if let Some(src) = e.source() {
+        //     eprintln!("{}", src);
+        // } else {
+        //     eprint!("{}", e.to_string());
+        // }
+
+        eprint!("{}", e.to_string());
+
+        std::process::exit(ec);
     }
 
     let mut app = app.unwrap();

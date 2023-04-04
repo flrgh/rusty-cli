@@ -96,6 +96,10 @@ fn http_conf(app: &mut App, m: &mut ArgMatches) -> IncludeResult {
     app.http_conf.extend(package_path(&app.lua_package_path));
     app.http_conf.extend(package_cpath(&app.lua_package_path));
 
+    for shm in consume_all::<Shdict>("shdict", m) {
+        app.http_conf.push(shm.to_nginx());
+    }
+
     for shm in consume_arg_strings("shdict", m) {
         // TODO: validation
         app.http_conf.push(format!("lua_shared_dict {};", shm));
@@ -123,8 +127,15 @@ fn main_conf(app: &mut App, m: &mut ArgMatches) -> IncludeResult {
     includes(&mut app.main_conf, "main-include", m)
 }
 
+fn consume_all<T>(id: &str, m: &mut ArgMatches) -> impl Iterator<Item = T>
+where
+    T: Clone + Sync + Send + 'static,
+{
+    m.remove_many::<T>(id).unwrap_or_default()
+}
+
 fn consume_arg_strings(id: &str, m: &mut ArgMatches) -> impl Iterator<Item = String> {
-    m.remove_many::<String>(id).unwrap_or_default()
+    consume_all::<String>(id, m)
 }
 
 fn consume_arg_string(id: &str, m: &mut ArgMatches) -> Option<String> {
@@ -261,7 +272,7 @@ fn cmd() -> Command {
                 .value_name("NAME SIZE")
                 .action(Append)
                 .help("Create the specified lua shared dicts in the http configuration block (multiple instances are supported).")
-                .value_parser(NonEmptyStringValueParser::new())
+                .value_parser(value_parser!(Shdict))
         )
         .arg(
             Arg::new("nginx-path")
@@ -535,11 +546,11 @@ impl From<&mut ArgMatches> for Runner {
     fn from(m: &mut ArgMatches) -> Self {
         if consume_flag("rr", m) {
             return Self::RR;
-        } else if consume_flag("stap", m) {
+        } else if consume_flag("stap", m) || arg_is_present("stap-opts", m) {
             return Self::Stap(consume_arg_string("stap-opts", m));
-        } else if consume_flag("valgrind", m) {
+        } else if consume_flag("valgrind", m) || arg_is_present("valgrind-opts", m) {
             return Self::Valgrind(consume_arg_string("valgrind-opts", m));
-        } else if consume_flag("gdb", m) {
+        } else if consume_flag("gdb", m) || arg_is_present("gdb-opts", m) {
             return Self::Gdb(consume_arg_string("gdb-opts", m));
         } else if let Some(user) = consume_arg_string("user-runner", m) {
             return Self::User(user);
@@ -657,19 +668,21 @@ impl TryFrom<env::Args> for App {
 
         app.lua_file = consume_arg_string("lua-file", &mut m);
 
-        if let (None, false) = (&app.lua_file, arg_is_present("inline-lua", &m)) {
-            if !app.version {
-                return Err(c.error(
-                    ErrorKind::MissingRequiredArgument,
-                    "at least one of -e <expr> or lua file is required\n",
-                ));
-            }
+        if app.lua_file.is_none()
+            && !arg_is_present("inline-lua", &m)
+            && !arg_is_present("lua-libraries", &m)
+            && !app.version
+        {
+            return Err(c.error(
+                ErrorKind::MissingRequiredArgument,
+                "at least one of -e <expr> or lua file is required\n",
+            ));
         }
 
         if let Some(file) = &app.lua_file {
             if !PathBuf::from(file).exists() {
-                let msg = format!("Lua input file {file} not found.\n");
-                return Err(c.error(ErrorKind::ValueValidation, msg));
+                let msg = format!("Lua input file {file} not found.");
+                return Err(c.error(ErrorKind::Io, msg));
             }
         }
 
