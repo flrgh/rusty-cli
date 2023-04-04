@@ -124,10 +124,14 @@ jobs:
         run: ./tests/setup-resty-cli.sh
 
       - name: sanity 2
-        run: ./target/debug/rusty-cli --help
+        run: |
+          ./target/debug/rusty-cli --help
+          ./target/debug/rusty-cli \
+             --gdb-opts="--nx -batch -ex 'b main' -ex run -ex bt -ex 'b lj_cf_io_method_write' -ex c -ex bt" \
+             -e 'io.stderr:write("hello world!~~\n")'
 
       - name: nginx info
         run: nginx -V
 
       - name: prove
-        run: prove -r t/ || true
+        run: prove -r t/
