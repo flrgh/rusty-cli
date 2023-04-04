@@ -3,42 +3,34 @@ use std::io::{BufRead, BufReader};
 use std::net::IpAddr;
 
 pub fn try_parse_resolv_conf() -> Option<Vec<String>> {
-    let file: fs::File;
-
-    if let Ok(fh) = fs::File::open("/etc/resolv.conf") {
-        file = fh
-    } else {
-        return None;
-    }
+    let file = fs::File::open("/etc/resolv.conf").ok()?;
 
     let mut nameservers = vec![];
 
     BufReader::new(file)
         .lines()
-        .take_while(Result::is_ok)
-        .map(Result::unwrap)
+        .filter_map(Result::ok)
         .for_each(|line| {
             let line = line.trim();
             let mut parts = line.split_whitespace();
 
             let predicate = match parts.next() {
                 Some("nameserver") => parts.next(),
-                _ => None,
+                _ => return,
             };
 
-            // not enough parts
-            if predicate.is_none() {
-                return;
-            }
+            let ns = match predicate {
+                Some(s) => s,
+                // not enough parts
+                _ => return,
+            };
 
             // too many parts
             if parts.next().is_some() {
                 return;
             }
 
-            let s = predicate.unwrap();
-
-            if let Ok(addr) = s.parse::<IpAddr>() {
+            if let Ok(addr) = ns.parse::<IpAddr>() {
                 nameservers.push(addr.to_string());
             }
         });
