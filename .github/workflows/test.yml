@@ -28,7 +28,7 @@ jobs:
           command: test
 
   compat:
-    name: resty-cli compat
+    name: resty-cli compat ${{ matrix.resty-cli }} / ${{ matrix.openresty }}
     runs-on: ubuntu-latest
     strategy:
       matrix:

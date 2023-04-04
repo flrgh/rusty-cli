@@ -117,7 +117,7 @@ impl std::str::FromStr for Shdict {
 
         //dbg!(s, name, size, &parts);
 
-        if let Some(_) = parts.next() {
+        if parts.next().is_some() {
             return Err(InvalidShdict::from(s));
         }
 

@@ -16,7 +16,7 @@ use crate::types::*;
 
 use clap::*;
 use std::env;
-use std::error::Error;
+
 use std::io::Write as IoWrite;
 use std::process::{exit, Command};
 
@@ -74,7 +74,7 @@ fn main() {
         //     eprint!("{}", e.to_string());
         // }
 
-        eprint!("{}", e.to_string());
+        eprint!("{}", e);
 
         std::process::exit(ec);
     }
