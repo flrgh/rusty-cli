@@ -32,12 +32,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        openresty:
-          - 1.21.4.1
-        resty-cli:
-          - v0.28
-        openssl:
-          - 1.1.1n
+        include:
+          - openresty: 1.21.4.1
+            resty-cli: v0.28
+            openssl: 1.1.1n
+            openresty-opts: >
+              --with-compat
+              --with-pcre-jit
+              --with-stream
+              --with-threads
+              --with-http_ssl_module
+              --with-stream_ssl_module
+              --with-stream_ssl_preread_module
+
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup
@@ -57,6 +64,10 @@ jobs:
           echo OPENRESTY_PREFIX=${GITHUB_WORKSPACE}/openresty/${{ matrix.openresty }} >> $GITHUB_ENV
           echo PERL5LIB=${GITHUB_WORKSPACE}/work/lib/cpanm/lib/perl5 >> $GITHUB_ENV
 
+      - name: Store OpenResty build opts
+        run: |
+          echo '${{ matrix.openresty-opts }}' > .resty-opts
+
       - name: cache OpenResty
         uses: actions/cache@v3
         id: cache-openresty
@@ -64,7 +75,7 @@ jobs:
           path: |
             ${{ env.OPENRESTY_PREFIX }}
             work/
-          key: v2::${{ runner.os }}-openresty-${{ matrix.openresty }}
+          key: v2::${{ runner.os }}-openresty-${{ matrix.openresty }}-${{ hashFiles('.resty-opts') }}
 
       - name: setup OpenResty
         if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
@@ -74,18 +85,12 @@ jobs:
           version: ${{ matrix.openresty }}
           openssl-version: ${{ matrix.openssl }}
           test-nginx: true
-          opt: >
-            --with-compat
-            --with-pcre-jit
-            --with-stream
-            --with-threads
-            --with-http_ssl_module
-            --with-stream_ssl_module
-            --with-stream_ssl_preread_module
+          debug: true
+          opt: ${{ matrix.openresty-opts }}
 
-      - name: cleanup
+      - name: Cleanup OpenResty build artifacts
+        if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
         run: |
-          shopt -s dotglob
           rm -rf \
             ./work/OpenResty \
             ./work/OpenSSL/test \
@@ -95,8 +100,6 @@ jobs:
             ./work/OpenSSL/fuzz \
             ./work/downloads \
           || true
-
-          du -sh ./work/OpenSSL/*
 
       - name: add OpenResty bin dirs to PATH
         run: |
