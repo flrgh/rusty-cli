@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+set -u
 
 readonly -a ARGS=(
     -e 'print("hello")'
@@ -21,35 +22,34 @@ declare -a FAILED=()
 
 if [[ ${CI:-} == "true" ]]; then
     readonly CI=1
-else
-    readonly CI=0
-fi
 
-log-err() {
-    if (( CI == 1 )); then
+    log-err() {
         echo "::error::$1"
+    }
 
-    else
-        echo "$1"
-    fi
-}
+    log-group() {
+        if [[ -n ${1:-} ]]; then
+            echo "::group::$1"
 
-log-group() {
-    if [[ -n ${1:-} ]]; then
-        local -r case=$1
-
-        if (( CI == 1 )) then
-            echo "::group::$case"
         else
-            echo "-----------------------"
-        fi
-
-    else
-        if (( CI == 1 )) then
             echo "::endgroup::"
         fi
-    fi
-}
+    }
+
+else
+    readonly CI=0
+
+    log-err() {
+        echo "$1"
+    }
+
+    log-group() {
+        if [[ -n ${1:-} ]]; then
+            echo "-----------------------"
+        fi
+    }
+
+fi
 
 
 run() {
