@@ -93,8 +93,8 @@ diff_result() {
     local -r case=$1
     local -r file=$2
 
-    patch_result_file "$TMP/resty.${file}"
-    patch_result_file "$TMP/rusty.${file}"
+    #patch_result_file "$TMP/resty.${file}"
+    #patch_result_file "$TMP/rusty.${file}"
 
     printf '[%s] %s' \
         "$case" \
