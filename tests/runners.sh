@@ -64,9 +64,12 @@ run() {
         cmd+=( "$RESTY" )
     fi
 
-    if (( $# > 0 && ${#1} > 0 )); then
+    local first=${1:-}
+
+    if (( $# > 0 && ${#first} > 0 )); then
         cmd+=( "$@" )
     fi
+
     cmd+=( "${ARGS[@]}" )
 
     env - PATH="$RUNNER_PATH" "${cmd[@]}" \
