@@ -97,9 +97,10 @@ fn insert_inline_lua(buf: &mut Buf, prefix: &Prefix, lua: &Vec<String>) {
     buf.append("-- inline lua code");
 
     if lua.is_empty() {
-        buf.append("local inline_gen");
         return;
     }
+
+    buf.append("local inline_gen");
 
     let path = prefix.conf.join("a.lua");
     let fname = path.to_str().to_owned().unwrap();
@@ -122,7 +123,6 @@ fn insert_code_for_lua_file(buf: &mut Buf, file: &Option<String>) {
 }
 
 fn insert_lua_args(buf: &mut Buf, file: &Option<String>, args: &Vec<String>) {
-    buf.append("-- cli args");
     buf.append("arg = {}");
 
     buf.append(&format!(
@@ -180,11 +180,10 @@ pub(crate) fn generate_lua_loader(
     buf.newline();
 
     buf.append("gen = function()");
-    buf.indent += 1;
-    buf.append("if inline_gen then inline_gen() end");
-    buf.append("if file_gen then file_gen() end");
-    buf.indent -= 1;
+    buf.append("  if inline_gen then inline_gen() end");
+    buf.append("  if file_gen then file_gen() end");
     buf.append("end");
+
     buf.indent -= 1;
     buf.append("end");
 

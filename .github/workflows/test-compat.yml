@@ -32,6 +32,18 @@ jobs:
               --with-stream_ssl_module
               --with-stream_ssl_preread_module
 
+          - openresty: 1.21.4.1
+            resty-cli: v0.29
+            openssl: 1.1.1n
+            openresty-opts: >
+              --with-compat
+              --with-pcre-jit
+              --with-stream
+              --with-threads
+              --with-http_ssl_module
+              --with-stream_ssl_module
+              --with-stream_ssl_preread_module
+
     steps:
       - name: install gdb
         run: |
@@ -125,3 +137,6 @@ jobs:
 
       - name: runner opts
         run: ./tests/runners.sh
+
+      - name: nginx.conf generation
+        run: ./tests/conf-generation.sh

@@ -95,7 +95,10 @@ http {
         ngx.flush = function (...) return stdout:flush() end
         -- we cannot close stdout here due to a bug in Lua:
         ngx.eof = function (...) return true end
-        ngx.orig_exit = ngx.exit
+
+        -- TODO: re-add this and make it configurable for different resty-cli versions
+        --ngx.orig_exit = ngx.exit
+
         ngx.exit = os.exit
     }
 
