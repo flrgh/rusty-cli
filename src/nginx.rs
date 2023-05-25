@@ -65,27 +65,19 @@ pub fn find_nginx_bin(nginx: Option<String>) -> PathBuf {
     PathBuf::from("nginx")
 }
 
-
 fn get_resty_compat_version() -> u64 {
     match env::var_os(RESTY_COMPAT_VAR) {
         Some(value) => {
             let value = value.to_str().unwrap();
 
-            let value = value.strip_prefix("v")
-                            .unwrap_or(value);
+            let value = value.strip_prefix('v').unwrap_or(value);
 
-            let items: Vec<&str> = value.splitn(3, ".").collect();
+            let items: Vec<&str> = value.splitn(3, '.').collect();
 
-            let value = if items.len() > 1 {
-                items[1]
-            } else {
-                items[0]
-            };
+            let value = if items.len() > 1 { items[1] } else { items[0] };
 
             value.parse::<u64>().unwrap_or(RESTY_COMPAT_LATEST)
-        },
-        None => {
-            RESTY_COMPAT_LATEST
         }
+        None => RESTY_COMPAT_LATEST,
     }
 }
