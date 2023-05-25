@@ -1,4 +1,6 @@
 # rusty-cli
+[![test](https://github.com/flrgh/rusty-cli/actions/workflows/test.yml/badge.svg)](https://github.com/flrgh/rusty-cli/actions/workflows/test.yml)
+[![resty-cli compat](https://github.com/flrgh/rusty-cli/actions/workflows/test-compat.yml/badge.svg)](https://github.com/flrgh/rusty-cli/actions/workflows/test-compat.yml)
 
 [resty-cli](https://github.com/openresty/resty-cli), written in rust
 
@@ -14,8 +16,19 @@ to worry about when packaging OpenResty or other software that bundles it.
 
 ## Status
 
-Many of the core features are implemented, but there's a ways to go to acheive
-100% compatibility with resty-cli. Here's a rough outline of the current status:
+`rusty-cli` is working well enough for development usage. There have been
+several times in the last few months where I symlinked it in place of `resty`
+in order to test out a real world use case and simply forgot it was there,
+leaving it in place for weeks at a time (I work on OpenResty-related stuff
+pretty much every day).
+
+It is also passing all of `resty-cli`'s tests. However, the OpenResty tests
+are far from exhaustive, so I am not ready to call this production-ready until
+I add some more integration tests myself.
+
+## Features
+
+Almost all of the core features of `resty-cli` have been implemented: 
 
 - NGINX config features
     - main/root
@@ -60,7 +73,7 @@ Many of the core features are implemented, but there's a ways to go to acheive
     - [x] *nix
     - [ ] Windows (this might be dropped as a goal altogether)
 
-### Non-goals
+## Non-goals
 
 While rusty-cli strives to be _functionally_ compatible with resty-cli where it
 counts, there are some things that it does not care to replicate exactly:
@@ -74,10 +87,31 @@ counts, there are some things that it does not care to replicate exactly:
     * Disclaimer: Anything that is intended for human eyes and not typically
       machine-parseable will not be byte-for-byte identical to resty-cli.
 
-### TODO
+## TODO
 
 - [ ] release tooling/automation
 - [x] CI integration
 - [ ] testing
     - [ ] in-repo unit/functional tests
     - [x] test against [resty-cli's test suite](https://github.com/openresty/resty-cli/tree/master/t)
+
+## Acknowledgements
+
+Thanks to the [OpenResty](https://openresty.org/) folks for creating an awesome
+piece of software that is fun to build with ❤️.
+
+## License
+
+This module is licensed under the BSD license.
+
+Copyright (C) 2022-2023, by Michael Martin <flrgh@protonmail.com>.
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
