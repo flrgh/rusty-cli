@@ -3,7 +3,7 @@ use std::env;
 use std::path::PathBuf;
 
 pub static RESTY_COMPAT_VAR: &str = "RESTY_CLI_COMPAT_VERSION";
-pub static RESTY_COMPAT_LATEST: u64 = 29;
+pub static RESTY_COMPAT_LATEST: u64 = 28;
 
 pub static TEMPLATE: &str = include_str!("nginx.conf.tpl");
 
