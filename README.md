@@ -2,7 +2,7 @@
 [![test](https://github.com/flrgh/rusty-cli/actions/workflows/test.yml/badge.svg)](https://github.com/flrgh/rusty-cli/actions/workflows/test.yml)
 [![resty-cli compat](https://github.com/flrgh/rusty-cli/actions/workflows/test-compat.yml/badge.svg)](https://github.com/flrgh/rusty-cli/actions/workflows/test-compat.yml)
 
-[resty-cli](https://github.com/openresty/resty-cli), written in rust
+[resty-cli](https://github.com/openresty/resty-cli), reimplemented
 
 ## Why does this exist?
 
