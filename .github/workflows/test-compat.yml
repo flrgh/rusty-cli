@@ -1,0 +1,157 @@
+name: compatibility tests
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - '*'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  compat:
+    name: resty-cli compat ${{ matrix.resty-cli }} / ${{ matrix.openresty }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - openresty: 1.19.9.1
+            resty-cli: v0.28
+            openssl: 1.1.1n
+            openresty-opts: >
+              --with-compat
+              --with-pcre-jit
+              --with-stream
+              --with-threads
+              --with-http_ssl_module
+              --with-stream_ssl_module
+              --with-stream_ssl_preread_module
+
+          - openresty: 1.21.4.1
+            resty-cli: v0.28
+            openssl: 1.1.1n
+            openresty-opts: >
+              --with-compat
+              --with-pcre-jit
+              --with-stream
+              --with-threads
+              --with-http_ssl_module
+              --with-stream_ssl_module
+              --with-stream_ssl_preread_module
+
+          - openresty: 1.21.4.2rc1
+            resty-cli: v0.29
+            openssl: 1.1.1n
+            openresty-opts: >
+              --with-compat
+              --with-pcre-jit
+              --with-stream
+              --with-threads
+              --with-http_ssl_module
+              --with-stream_ssl_module
+              --with-stream_ssl_preread_module
+
+    steps:
+      - name: install gdb
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gdb
+          gdb --version
+
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup
+        with:
+          build: true
+
+      - name: set resty-cli compat env var
+        run: echo "RESTY_CLI_COMPAT_VERSION=${{ matrix.resty-cli }}" >> $GITHUB_ENV
+
+      - name: cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+
+      - name: sanity
+        run: ./target/debug/rusty-cli --help
+
+      - name: set OpenResty prefix
+        run: |
+          echo OPENRESTY_PREFIX=${GITHUB_WORKSPACE}/openresty/${{ matrix.openresty }} >> $GITHUB_ENV
+          echo PERL5LIB=${GITHUB_WORKSPACE}/work/lib/cpanm/lib/perl5 >> $GITHUB_ENV
+
+      - name: Store OpenResty build opts
+        run: |
+          echo '${{ matrix.openresty-opts }}' > .resty-opts
+
+      - name: cache OpenResty
+        uses: actions/cache@v3
+        id: cache-openresty
+        with:
+          path: |
+            ${{ env.OPENRESTY_PREFIX }}
+            work/
+          key: v2::${{ runner.os }}-openresty-${{ matrix.openresty }}-${{ hashFiles('.resty-opts') }}
+
+      - name: setup OpenResty
+        if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
+        id: setup-openresty
+        uses: thibaultcha/setup-openresty@main
+        with:
+          version: ${{ matrix.openresty }}
+          openssl-version: ${{ matrix.openssl }}
+          test-nginx: true
+          debug: true
+          opt: ${{ matrix.openresty-opts }}
+
+      - name: Cleanup OpenResty build artifacts
+        if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
+        run: |
+          rm -rf \
+            ./work/OpenResty \
+            ./work/OpenSSL/test \
+            ./work/OpenSSL/doc \
+            ./work/OpenSSL/test \
+            ./work/OpenSSL/demos \
+            ./work/OpenSSL/fuzz \
+            ./work/downloads \
+          || true
+
+      - name: add OpenResty bin dirs to PATH
+        run: |
+          echo ${OPENRESTY_PREFIX}/bin >> $GITHUB_PATH
+          echo ${OPENRESTY_PREFIX}/luajit/bin >> $GITHUB_PATH
+          echo ${OPENRESTY_PREFIX}/nginx/sbin >> $GITHUB_PATH
+
+      - name: checkout resty-cli repo
+        uses: actions/checkout@v3
+        with:
+          repository: openresty/resty-cli
+          ref: ${{ matrix.resty-cli }}
+          path: resty-cli
+
+      - name: copy & patch files
+        run: ./tests/setup-resty-cli.sh
+
+      - name: sanity 2
+        run: |
+          ./target/debug/rusty-cli --help
+          ./target/debug/rusty-cli \
+             --gdb-opts="--nx -batch -ex 'b main' -ex run -ex bt -ex 'b lj_cf_io_method_write' -ex c -ex bt" \
+             -e 'io.stderr:write("hello world!~~\n")'
+
+      - name: nginx info
+        run: nginx -V
+
+      - name: prove
+        run: prove -r t/
+
+      - name: runner opts
+        run: ./tests/runners.sh
+
+      - name: nginx.conf generation
+        run: ./tests/conf-generation.sh

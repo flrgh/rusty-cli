@@ -39,7 +39,7 @@ type IncludeResult = Result<(), MissingIncludeFileError>;
 
 fn confs(field: &mut Vec<String>, id: &str, m: &mut ArgMatches) {
     for line in consume_arg_strings(id, m) {
-        field.push(normalize_conf_line(line));
+        field.push(line);
     }
 }
 
@@ -83,12 +83,6 @@ fn env_vars() -> Vec<String> {
 
     vars.sort();
     vars
-}
-
-fn normalize_conf_line(line: String) -> String {
-    let line = line.trim();
-    let line = line.trim_end_matches(';');
-    format!("{};", line)
 }
 
 fn http_conf(app: &mut App, m: &mut ArgMatches) -> IncludeResult {

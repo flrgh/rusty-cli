@@ -2,6 +2,9 @@ use minijinja::{context, Environment};
 use std::env;
 use std::path::PathBuf;
 
+pub static RESTY_COMPAT_VAR: &str = "RESTY_CLI_COMPAT_VERSION";
+pub static RESTY_COMPAT_LATEST: u64 = 28;
+
 pub static TEMPLATE: &str = include_str!("nginx.conf.tpl");
 
 pub struct Vars {
@@ -32,6 +35,7 @@ pub fn render_config(vars: Vars) -> String {
         stream_conf => vars.stream_conf,
         lua_loader => vars.lua_loader,
         worker_connections => vars.worker_connections,
+        resty_compat_version => get_resty_compat_version(),
     };
 
     template.render(ctx).unwrap()
@@ -59,4 +63,22 @@ pub fn find_nginx_bin(nginx: Option<String>) -> PathBuf {
     }
 
     PathBuf::from("nginx")
+}
+
+fn get_resty_compat_version() -> u64 {
+    // TODO: maybe make this a build config item?
+    match env::var_os(RESTY_COMPAT_VAR) {
+        Some(value) => {
+            let value = value.to_str().unwrap();
+
+            let value = value.strip_prefix('v').unwrap_or(value);
+
+            let items: Vec<&str> = value.splitn(3, '.').collect();
+
+            let value = if items.len() > 1 { items[1] } else { items[0] };
+
+            value.parse::<u64>().unwrap_or(RESTY_COMPAT_LATEST)
+        }
+        None => RESTY_COMPAT_LATEST,
+    }
 }
