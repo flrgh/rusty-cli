@@ -56,6 +56,9 @@ jobs:
         with:
           build: true
 
+      - name: set resty-cli compat env var
+        run: echo "RESTY_CLI_COMPAT_VERSION=${{ matrix.resty-cli }}" >> $GITHUB_ENV
+
       - name: cargo build
         uses: actions-rs/cargo@v1
         with:
