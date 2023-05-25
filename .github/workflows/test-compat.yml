@@ -20,6 +20,18 @@ jobs:
     strategy:
       matrix:
         include:
+          - openresty: 1.19.9.1
+            resty-cli: v0.28
+            openssl: 1.1.1n
+            openresty-opts: >
+              --with-compat
+              --with-pcre-jit
+              --with-stream
+              --with-threads
+              --with-http_ssl_module
+              --with-stream_ssl_module
+              --with-stream_ssl_preread_module
+
           - openresty: 1.21.4.1
             resty-cli: v0.28
             openssl: 1.1.1n

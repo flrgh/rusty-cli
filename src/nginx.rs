@@ -66,6 +66,7 @@ pub fn find_nginx_bin(nginx: Option<String>) -> PathBuf {
 }
 
 fn get_resty_compat_version() -> u64 {
+    // TODO: maybe make this a build config item?
     match env::var_os(RESTY_COMPAT_VAR) {
         Some(value) => {
             let value = value.to_str().unwrap();
