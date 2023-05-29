@@ -155,3 +155,6 @@ jobs:
 
       - name: nginx.conf generation
         run: ./tests/conf-generation.sh
+
+      - name: lua script argv translation
+        run: ./tests/lua-arg.sh
