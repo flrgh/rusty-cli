@@ -67,6 +67,12 @@ else
 fi
 
 
+fatal() {
+    log-err "FATAL: $1"
+    exit 1
+}
+
+
 run() {
     local -r name=$1
     shift
@@ -137,8 +143,7 @@ generate() {
             ;;
 
         *)
-            echo "FATAL: unexpected input: $name"
-            exit 1
+            fatal "FATAL: unexpected input: $name"
     esac
 
     local stdout=$TMP/${name}/stdout
@@ -205,14 +210,14 @@ test_args() {
         if _diff "$TMP/rusty/argv" "$TMP/resty/argv"; then
             echo "OK"
         else
-            echo "FAIL: argv"
+            log-err "FAIL: argv"
             echo
             cat "$DIFF"
             rc=1
         fi
     else
         rc=1
-        echo "FAIL: exit code mismatch"
+        log-err "FAIL: exit code mismatch"
         echo
         cat "$DIFF"
     fi
@@ -252,13 +257,11 @@ test_all() {
 
 main() {
     if [[ ! -x "$RESTY" ]]; then
-        log-err "fatal: resty-cli executable not found at $RESTY"
-        exit 1
+        fatal "resty-cli executable not found at $RESTY"
     fi
 
     if [[ ! -x "$RUSTY" ]]; then
-        log-err "fatal: rusty-cli executable not found at $RUSTY"
-        exit 1
+        fatal "rusty-cli executable not found at $RUSTY"
     fi
 
     test_all "${TEST_01[@]}"
