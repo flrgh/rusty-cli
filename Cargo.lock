@@ -313,8 +313,6 @@ dependencies = [
  "nix",
  "shlex",
  "signal-child",
- "signal-hook",
- "signal-hook-registry",
  "strum",
  "strum_macros",
 ]
@@ -336,26 +334,6 @@ name = "signal-child"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2a4eed4c5ae38438470ab8e0108bb751012f786f44ff585cfd837c9a5fe426f"
-
-[[package]]
-name = "signal-hook"
-version = "0.3.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "732768f1176d21d09e076c23a93123d40bba92d50c4058da34d45c8de8e682b9"
-dependencies = [
- "cc",
- "libc",
- "signal-hook-registry",
-]
-
-[[package]]
-name = "signal-hook-registry"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8229b473baa5980ac72ef434c4415e70c4b5e71b423043adb4ba059f89c99a1"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "static_assertions"

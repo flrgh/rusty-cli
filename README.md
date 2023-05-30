@@ -28,7 +28,7 @@ I add some more integration tests myself.
 
 ## Features
 
-Almost all of the core features of `resty-cli` have been implemented: 
+Almost all of the core features of `resty-cli` have been implemented:
 
 - NGINX config features
     - main/root
@@ -97,14 +97,19 @@ CLI metadata, error messages, and nginx.conf, I recommend against using rusty-cl
 
 ## TODO
 
-- [ ] release tooling/automation
-- [x] CI integration
-- [x] testing
+- [x] tests
     - [x] test against [resty-cli's test suite](https://github.com/openresty/resty-cli/tree/master/t)
     - [x] additional in-repo resty-cli compatibility tests
         - [x] custom runner arg parsing and execution
         - [x] lua `arg` global generation
         - [x] nginx.conf generation
+- [ ] automated binary releases
+    - [x] x86_64-unknown-linux-gnu
+    - [ ] x86_64-unknown-linux-musl
+    - [ ] aarch64-unknown-linux-gnu
+    - [ ] aarch64-unknown-linux-musl
+    - [ ] x86_64-apple-darwin
+    - [ ] aarch64-apple-darwin
 
 ## Acknowledgements
 

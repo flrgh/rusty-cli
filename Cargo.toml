@@ -16,7 +16,6 @@ publish = true
 clap = { version = "4", features = ["derive", "cargo"] }
 mktemp = { version = "0.4.1" }
 minijinja = "0.20.0"
-signal-hook = { version = "0.3.15", features = ["iterator", "channel", "extended-siginfo"] }
 signal-child = "1.0.5"
 shlex = "1.1.0"
 strum = { version = "0.24", features = ["derive"] }
@@ -24,7 +23,6 @@ strum_macros = "0.24"
 libc = "0.2"
 errno = "0.3.0"
 nix = { version = "0.26.2", features = [ "signal", "process" ] }
-signal-hook-registry = "1.4.1"
 lazy_static = "1.4.0"
 
 # cargo-dist
@@ -36,9 +34,17 @@ lto = "thin"
 [workspace.metadata.dist]
 cargo-dist-version = "0.0.7"
 rust-toolchain-version = "1.67.1"
-targets = ["x86_64-unknown-linux-gnu"]
 ci = ["github"]
 installers = ["shell"]
+unix-archive = ".tar.gz"
+targets = [
+	"x86_64-unknown-linux-gnu",
+	#"x86_64-unknown-linux-musl",
+	#"aarch64-unknown-linux-gnu",
+	#"aarch64-unknown-linux-musl",
+	#"x86_64-apple-darwin",
+	#"aarch64-apple-darwin",
+]
 
 # cargo-release
 [workspace.metadata.release]
