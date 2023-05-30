@@ -87,13 +87,21 @@ counts, there are some things that it does not care to replicate exactly:
     * Disclaimer: Anything that is intended for human eyes and not typically
       machine-parseable will not be byte-for-byte identical to resty-cli.
 
+In many cases I _have_ replicated string outputs exactly as resty-cli, but only
+because this makes compatibility testing easier for me (I need to maintain
+patches for any of resty-cli's tests that produce different string output from
+rusty-cli). Do not rely on this if you are using rusty-cli.
+
+**If you are using resty-cli in a way that is sensitive to the exact contents of
+CLI metadata, error messages, and nginx.conf, I recommend against using rusty-cli.**
+
 ## TODO
 
 - [ ] release tooling/automation
 - [x] CI integration
 - [x] testing
     - [x] test against [resty-cli's test suite](https://github.com/openresty/resty-cli/tree/master/t)
-    - [x] additional in-repo `resty-cli` compatibility tests
+    - [x] additional in-repo resty-cli compatibility tests
         - [x] custom runner arg parsing and execution
         - [x] lua `arg` global generation
         - [x] nginx.conf generation
