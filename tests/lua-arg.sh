@@ -227,22 +227,26 @@ test_args() {
     return "$rc"
 }
 
-test_both() {
+test_all() {
     local file_args=()
     local inline_args=()
+    local inline_eq_args=()
 
     for arg in "$@"; do
         if [[ $arg == LUA_ARGV ]]; then
             file_args+=("$LUA_ARGV_FILE")
             inline_args+=(-e "$LUA_ARGV_SCRIPT")
+            inline_eq_args+=("-e=$LUA_ARGV_SCRIPT")
         else
             file_args+=("$arg")
             inline_args+=("$arg")
+            inline_eq_args+=("$arg")
         fi
     done
 
     test_args "${file_args[@]}"
     test_args "${inline_args[@]}"
+    test_args "${inline_eq_args[@]}"
 }
 
 
@@ -257,14 +261,14 @@ main() {
         exit 1
     fi
 
-    test_both "${TEST_01[@]}"
-    test_both "${TEST_02[@]}"
-    test_both "${TEST_03[@]}"
-    test_both "${TEST_04[@]}"
-    test_both "${TEST_05[@]}"
-    test_both "${TEST_06[@]}"
-    test_both "${TEST_07[@]}"
-    test_both "${TEST_08[@]}"
+    test_all "${TEST_01[@]}"
+    test_all "${TEST_02[@]}"
+    test_all "${TEST_03[@]}"
+    test_all "${TEST_04[@]}"
+    test_all "${TEST_05[@]}"
+    test_all "${TEST_06[@]}"
+    test_all "${TEST_07[@]}"
+    test_all "${TEST_08[@]}"
 }
 
 main "$@"

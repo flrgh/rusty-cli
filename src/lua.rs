@@ -29,6 +29,19 @@ impl Buf {
         line.push_str(s);
         self.lines.push(line);
     }
+
+    fn finalize(self) -> Vec<String> {
+        self.lines
+    }
+
+    fn indent(&mut self) {
+        self.indent += 1
+    }
+
+    fn dedent(&mut self) {
+        assert!(self.indent > 0);
+        self.indent -= 1
+    }
 }
 
 // resty-cli has a fancier implementation that stores all observed "levels" in
@@ -176,7 +189,7 @@ pub(crate) fn generate_lua_loader(
     let mut buf = Buf::new();
     buf.append("local gen");
     buf.append("do");
-    buf.indent += 1;
+    buf.indent();
 
     insert_lua_args(&mut buf, file, lua_args, prefix);
     buf.newline();
@@ -188,14 +201,16 @@ pub(crate) fn generate_lua_loader(
     buf.newline();
 
     buf.append("gen = function()");
-    buf.append("  if inline_gen then inline_gen() end");
-    buf.append("  if file_gen then file_gen() end");
+    buf.indent();
+    buf.append("if inline_gen then inline_gen() end");
+    buf.append("if file_gen then file_gen() end");
+    buf.dedent();
     buf.append("end");
 
-    buf.indent -= 1;
+    buf.dedent();
     buf.append("end");
 
-    buf.lines
+    buf.finalize()
 }
 
 pub(crate) fn package_path(dirs: &Vec<String>) -> Option<String> {

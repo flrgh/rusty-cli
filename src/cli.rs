@@ -665,6 +665,7 @@ impl TryFrom<env::Args> for App {
 
         app.lua_file = consume_arg_string("lua-file", &mut m);
 
+        // this is for resty-cli compatibility
         if app.lua_file.is_none() && !app.lua_args.is_empty() {
             if found_end_of_args_delim {
                 app.lua_args.remove(0);
