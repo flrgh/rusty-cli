@@ -91,9 +91,12 @@ counts, there are some things that it does not care to replicate exactly:
 
 - [ ] release tooling/automation
 - [x] CI integration
-- [ ] testing
-    - [ ] in-repo unit/functional tests
+- [x] testing
     - [x] test against [resty-cli's test suite](https://github.com/openresty/resty-cli/tree/master/t)
+    - [x] additional in-repo `resty-cli` compatibility tests
+        - [x] custom runner arg parsing and execution
+        - [x] lua `arg` global generation
+        - [x] nginx.conf generation
 
 ## Acknowledgements
 
