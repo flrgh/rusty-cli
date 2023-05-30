@@ -2,13 +2,16 @@ use libc::ESRCH;
 use nix::sys::signal as ns;
 use signal_child::signal;
 use signal_child::signal::Signal;
-use signal_hook::consts::*;
 use std::convert::TryFrom;
 use std::process::{Child, Command};
 use std::sync::Arc;
 use std::sync::{Condvar, Mutex};
 use std::thread;
 use std::time::Duration;
+
+use libc::{
+    SIGCHLD, SIGHUP, SIGINT, SIGKILL, SIGPIPE, SIGQUIT, SIGTERM, SIGUSR1, SIGUSR2, SIGWINCH,
+};
 
 const HANDLED: [i32; 9] = [
     SIGINT, SIGTERM, SIGQUIT, SIGHUP, SIGUSR1, SIGUSR2, SIGWINCH, SIGPIPE, SIGCHLD,

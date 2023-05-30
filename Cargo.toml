@@ -1,15 +1,21 @@
 [package]
 name = "rusty-cli"
-version = "0.1.0"
+version = "0.1.0-pre-1"
 edition = "2021"
+authors = ["Michael Martin <flrgh@protonmail.com>"]
+license = "BSD-2-Clause"
+repository = "https://github.com/flrgh/rusty-cli"
+description = "resty-cli, rewritten"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# not publishing to crates.io (yet), but this needs to be set to true
+# in order for cargo-dist to run
+publish = true
+
 
 [dependencies]
 clap = { version = "4", features = ["derive", "cargo"] }
 mktemp = { version = "0.4.1" }
 minijinja = "0.20.0"
-signal-hook = { version = "0.3.15", features = ["iterator", "channel", "extended-siginfo"] }
 signal-child = "1.0.5"
 shlex = "1.1.0"
 strum = { version = "0.24", features = ["derive"] }
@@ -17,19 +23,33 @@ strum_macros = "0.24"
 libc = "0.2"
 errno = "0.3.0"
 nix = { version = "0.26.2", features = [ "signal", "process" ] }
-signal-hook-registry = "1.4.1"
 lazy_static = "1.4.0"
 
-# The profile that 'cargo dist' will build with
+# cargo-dist
 [profile.dist]
 inherits = "release"
 lto = "thin"
 
-# Config for 'cargo dist'
+# cargo-dist
 [workspace.metadata.dist]
-# The preferred cargo-dist version to use in CI (Cargo.toml SemVer syntax)
-cargo-dist-version = "0.0.5"
-# The preferred Rust toolchain to use in CI (rustup toolchain syntax)
+cargo-dist-version = "0.0.7"
 rust-toolchain-version = "1.67.1"
-# Target platforms to build apps for (Rust target-triple syntax)
-targets = ["x86_64-unknown-linux-gnu"]
+ci = ["github"]
+installers = ["shell"]
+unix-archive = ".tar.gz"
+targets = [
+	"x86_64-unknown-linux-gnu",
+	#"x86_64-unknown-linux-musl",
+	#"aarch64-unknown-linux-gnu",
+	#"aarch64-unknown-linux-musl",
+	#"x86_64-apple-darwin",
+	#"aarch64-apple-darwin",
+]
+
+# cargo-release
+[workspace.metadata.release]
+sign-commit = true
+sign-tag = true
+push = true # git
+tag = true
+consolidate-commits = true
