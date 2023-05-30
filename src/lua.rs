@@ -146,13 +146,6 @@ fn insert_lua_args(buf: &mut Buf, file: &Option<String>, args: &Vec<String>, pre
         ));
     }
 
-    // let lua_args = match file {
-    //     // + 1 because we count the Lua filename
-    //     Some(_) => args.len() + 1,
-    //     _ => args.len(),
-    // };
-    //
-
     let mut lua_args_len = args.len() as i32;
     if file.is_some() {
         lua_args_len += 1;
@@ -166,15 +159,6 @@ fn insert_lua_args(buf: &mut Buf, file: &Option<String>, args: &Vec<String>, pre
     }
 
     let pos = all_args_len - lua_args_len;
-
-    //dbg!(&args);
-    //dbg!(&lua_args_len);
-
-    //dbg!(&all_args);
-    //dbg!(&all_args_len);
-
-    //dbg!(file);
-    //dbg!(&pos);
 
     buf.append(&format!(
         "arg[{}] = {}",
