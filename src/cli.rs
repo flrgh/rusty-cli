@@ -608,6 +608,8 @@ impl TryFrom<env::Args> for App {
             *opts.get(arg).unwrap_or(&false)
         };
 
+        let mut found_end_of_args_delim = false;
+
         // pre-parse the CLI args
         //
         // resty-cli allows additional args to be passed to lua. This can take
@@ -629,6 +631,7 @@ impl TryFrom<env::Args> for App {
         while let Some(elem) = args.pop_front() {
             // end of input, everything else is a lua arg
             if elem == "--" {
+                found_end_of_args_delim = true;
                 break;
 
             // flag or option
@@ -661,6 +664,14 @@ impl TryFrom<env::Args> for App {
         extend_from_args(&mut app.lua_args, "lua-args", &mut m);
 
         app.lua_file = consume_arg_string("lua-file", &mut m);
+
+        // this is for resty-cli compatibility
+        if app.lua_file.is_none() && !app.lua_args.is_empty() {
+            if found_end_of_args_delim {
+                app.lua_args.remove(0);
+            }
+            app.lua_file = Some(app.lua_args.remove(0));
+        }
 
         if app.lua_file.is_none()
             && !arg_is_present("inline-lua", &m)

@@ -29,6 +29,19 @@ impl Buf {
         line.push_str(s);
         self.lines.push(line);
     }
+
+    fn finalize(self) -> Vec<String> {
+        self.lines
+    }
+
+    fn indent(&mut self) {
+        self.indent += 1
+    }
+
+    fn dedent(&mut self) {
+        assert!(self.indent > 0);
+        self.indent -= 1
+    }
 }
 
 // resty-cli has a fancier implementation that stores all observed "levels" in
@@ -108,6 +121,7 @@ fn insert_inline_lua(buf: &mut Buf, prefix: &Prefix, lua: &Vec<String>) {
     let mut fh = fs::File::create(&path).unwrap();
     fh.write_all(lua.join("; ").as_bytes()).unwrap();
     fh.flush().unwrap();
+
     insert_lua_file_loader(buf, fname, true);
 }
 
@@ -122,14 +136,18 @@ fn insert_code_for_lua_file(buf: &mut Buf, file: &Option<String>) {
     insert_lua_file_loader(buf, fname.as_str(), false);
 }
 
-fn insert_lua_args(buf: &mut Buf, file: &Option<String>, args: &Vec<String>) {
+fn insert_lua_args(buf: &mut Buf, file: &Option<String>, args: &Vec<String>, prefix: &Prefix) {
     buf.append("arg = {}");
 
     buf.append(&format!(
         "arg[0] = {}",
         match file {
             Some(fname) => quote_lua_string(fname.as_str()),
-            None => quote_lua_string("./conf/a.lua"),
+            None => {
+                let path = prefix.conf.join("a.lua");
+                let fname = path.to_str().to_owned().unwrap();
+                quote_lua_string(fname)
+            }
         }
     ));
 
@@ -141,16 +159,19 @@ fn insert_lua_args(buf: &mut Buf, file: &Option<String>, args: &Vec<String>) {
         ));
     }
 
-    let lua_args = match file {
-        // + 1 because we count the Lua filename
-        Some(_) => args.len() + 1,
-        _ => 0,
-    };
+    let mut lua_args_len = args.len() as i32;
+    if file.is_some() {
+        lua_args_len += 1;
+    }
 
     let prog = env::args().next().unwrap();
-    let all_args = env::args().len();
+    let all_args = env::args();
+    let mut all_args_len = all_args.len() as i32;
+    if file.is_none() {
+        all_args_len -= 1;
+    }
 
-    let pos: i32 = (all_args - lua_args).try_into().unwrap();
+    let pos = all_args_len - lua_args_len;
 
     buf.append(&format!(
         "arg[{}] = {}",
@@ -168,9 +189,9 @@ pub(crate) fn generate_lua_loader(
     let mut buf = Buf::new();
     buf.append("local gen");
     buf.append("do");
-    buf.indent += 1;
+    buf.indent();
 
-    insert_lua_args(&mut buf, file, lua_args);
+    insert_lua_args(&mut buf, file, lua_args, prefix);
     buf.newline();
 
     insert_inline_lua(&mut buf, prefix, inline);
@@ -180,14 +201,16 @@ pub(crate) fn generate_lua_loader(
     buf.newline();
 
     buf.append("gen = function()");
-    buf.append("  if inline_gen then inline_gen() end");
-    buf.append("  if file_gen then file_gen() end");
+    buf.indent();
+    buf.append("if inline_gen then inline_gen() end");
+    buf.append("if file_gen then file_gen() end");
+    buf.dedent();
     buf.append("end");
 
-    buf.indent -= 1;
+    buf.dedent();
     buf.append("end");
 
-    buf.lines
+    buf.finalize()
 }
 
 pub(crate) fn package_path(dirs: &Vec<String>) -> Option<String> {
