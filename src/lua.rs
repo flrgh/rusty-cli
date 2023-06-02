@@ -1,48 +1,7 @@
 use crate::types::*;
 use std::cmp::max;
-use std::env;
 use std::fs;
 use std::io::Write as IoWrite;
-
-#[derive(Default)]
-struct Buf {
-    lines: Vec<String>,
-    indent: usize,
-}
-
-impl Buf {
-    fn new() -> Self {
-        Self::default()
-    }
-
-    fn newline(&mut self) {
-        self.lines.push(String::new());
-    }
-
-    fn append(&mut self, s: &str) {
-        let mut line = String::new();
-
-        if self.indent > 0 {
-            line.push_str("    ".repeat(self.indent).as_str());
-        }
-
-        line.push_str(s);
-        self.lines.push(line);
-    }
-
-    fn finalize(self) -> Vec<String> {
-        self.lines
-    }
-
-    fn indent(&mut self) {
-        self.indent += 1
-    }
-
-    fn dedent(&mut self) {
-        assert!(self.indent > 0);
-        self.indent -= 1
-    }
-}
 
 // resty-cli has a fancier implementation that stores all observed "levels" in
 // a hash. Then it iterates over 1..$max_level and checks for hash membership,
@@ -84,100 +43,17 @@ pub(crate) fn quote_lua_string(s: &str) -> String {
     format!("[{}[{}]{}]", eq, s, eq)
 }
 
-fn insert_lua_file_loader(buf: &mut Buf, fname: &str, inline: bool) {
-    buf.append(&format!("local fname = {}", quote_lua_string(fname)));
-    buf.append(r#"local f = assert(io.open(fname, "r"))"#);
-    buf.append(r#"local chunk = f:read("*a")"#);
-
-    let chunk_name = match inline {
-        true => "=(command line -e)".to_string(),
-        false => format!("@{}", fname),
-    };
-
-    let chunk_type = match inline {
-        true => "inline",
-        false => "file",
-    };
-
-    buf.append(&format!(
-        "local {}_gen = assert(loadstring(chunk, {}))",
-        chunk_type,
-        quote_lua_string(chunk_name.as_str())
-    ));
+pub(crate) trait LuaString {
+    fn lua_quote(&self) -> String;
 }
 
-fn insert_inline_lua(buf: &mut Buf, prefix: &Prefix, lua: &Vec<String>) {
-    buf.append("-- inline lua code");
-
-    if lua.is_empty() {
-        return;
+impl<T> LuaString for T
+where
+    T: AsRef<str>,
+{
+    fn lua_quote(&self) -> String {
+        quote_lua_string(self.as_ref())
     }
-
-    buf.append("local inline_gen");
-
-    let path = prefix.conf.join("a.lua");
-    let fname = path.to_str().to_owned().unwrap();
-
-    let mut fh = fs::File::create(&path).unwrap();
-    fh.write_all(lua.join("; ").as_bytes()).unwrap();
-    fh.flush().unwrap();
-
-    insert_lua_file_loader(buf, fname, true);
-}
-
-fn insert_code_for_lua_file(buf: &mut Buf, file: &Option<String>) {
-    buf.append("-- lua file");
-    if file.is_none() {
-        buf.append("local file_gen");
-        return;
-    }
-
-    let fname = file.clone().unwrap();
-    insert_lua_file_loader(buf, fname.as_str(), false);
-}
-
-fn insert_lua_args(buf: &mut Buf, file: &Option<String>, args: &Vec<String>, prefix: &Prefix) {
-    buf.append("arg = {}");
-
-    buf.append(&format!(
-        "arg[0] = {}",
-        match file {
-            Some(fname) => quote_lua_string(fname.as_str()),
-            None => {
-                let path = prefix.conf.join("a.lua");
-                let fname = path.to_str().to_owned().unwrap();
-                quote_lua_string(fname)
-            }
-        }
-    ));
-
-    for (i, arg) in args.iter().enumerate() {
-        buf.append(&format!(
-            "arg[{}] = {}",
-            i + 1,
-            quote_lua_string(arg).as_str()
-        ));
-    }
-
-    let mut lua_args_len = args.len() as i32;
-    if file.is_some() {
-        lua_args_len += 1;
-    }
-
-    let prog = env::args().next().unwrap();
-    let all_args = env::args();
-    let mut all_args_len = all_args.len() as i32;
-    if file.is_none() {
-        all_args_len -= 1;
-    }
-
-    let pos = all_args_len - lua_args_len;
-
-    buf.append(&format!(
-        "arg[{}] = {}",
-        0 - pos,
-        quote_lua_string(prog.as_str())
-    ));
 }
 
 pub(crate) fn generate_lua_loader(
@@ -185,32 +61,22 @@ pub(crate) fn generate_lua_loader(
     file: &Option<String>,
     inline: &Vec<String>,
     lua_args: &Vec<String>,
+    arg_0: String,
+    all_args_len: usize,
 ) -> Vec<String> {
-    let mut buf = Buf::new();
-    buf.append("local gen");
-    buf.append("do");
-    buf.indent();
+    let buf = Buf::new();
+    let inline_filename = prefix.conf.join("a.lua").to_str().unwrap().to_owned();
 
-    insert_lua_args(&mut buf, file, lua_args, prefix);
-    buf.newline();
-
-    insert_inline_lua(&mut buf, prefix, inline);
-    buf.newline();
-
-    insert_code_for_lua_file(&mut buf, file);
-    buf.newline();
-
-    buf.append("gen = function()");
-    buf.indent();
-    buf.append("if inline_gen then inline_gen() end");
-    buf.append("if file_gen then file_gen() end");
-    buf.dedent();
-    buf.append("end");
-
-    buf.dedent();
-    buf.append("end");
-
-    buf.finalize()
+    LuaGenerator {
+        arg_0,
+        all_args_len,
+        file,
+        inline,
+        lua_args,
+        buf,
+        inline_filename,
+    }
+    .generate()
 }
 
 pub(crate) fn package_path(dirs: &Vec<String>) -> Option<String> {
@@ -252,6 +118,133 @@ pub(crate) fn package_cpath(dirs: &Vec<String>) -> Option<String> {
     // extra `;` at the end to ensure the system default path is included
     path.push_str(";\";");
     Some(path)
+}
+
+#[derive(Debug)]
+struct LuaGenerator<'a> {
+    file: &'a Option<String>,
+    inline: &'a Vec<String>,
+    lua_args: &'a Vec<String>,
+    inline_filename: String,
+    buf: Buf,
+    arg_0: String,
+    all_args_len: usize,
+}
+
+impl<'a> LuaGenerator<'a> {
+    pub fn generate(mut self) -> Vec<String> {
+        self.buf.append("local gen");
+        self.buf.append("do");
+        self.buf.indent();
+
+        self.insert_lua_args();
+        self.buf.newline();
+
+        self.insert_inline_lua();
+        self.buf.newline();
+
+        self.insert_code_for_lua_file();
+        self.buf.newline();
+
+        self.buf.append("gen = function()");
+        self.buf.indent();
+        self.buf.append("if inline_gen then inline_gen() end");
+        self.buf.append("if file_gen then file_gen() end");
+        self.buf.dedent();
+        self.buf.append("end");
+
+        self.buf.dedent();
+        self.buf.append("end");
+
+        self.buf.finalize()
+    }
+
+    fn insert_lua_args(&mut self) {
+        self.buf.append("arg = {}");
+
+        self.buf.append(&format!(
+            "arg[0] = {}",
+            match self.file {
+                Some(fname) => fname,
+                None => &self.inline_filename,
+            }
+            .lua_quote()
+        ));
+
+        for (i, arg) in self.lua_args.iter().enumerate() {
+            self.buf
+                .append(&format!("arg[{}] = {}", i + 1, arg.lua_quote().as_str()));
+        }
+
+        let mut lua_args_len = self.lua_args.len() as i32;
+        if self.file.is_some() {
+            lua_args_len += 1;
+        }
+
+        let prog = self.arg_0.lua_quote();
+
+        let mut all_args_len = self.all_args_len as i32;
+
+        if self.file.is_none() {
+            all_args_len -= 1;
+        }
+
+        let pos = all_args_len - lua_args_len;
+
+        self.buf.append(&format!("arg[{}] = {}", 0 - pos, prog));
+    }
+
+    fn insert_inline_lua(&mut self) {
+        self.buf.append("-- inline lua code");
+
+        if self.inline.is_empty() {
+            return;
+        }
+
+        self.buf.append("local inline_gen");
+
+        let fname = self.inline_filename.clone();
+        let mut fh = fs::File::create(&fname).unwrap();
+
+        fh.write_all(self.inline.join("; ").as_bytes()).unwrap();
+        fh.flush().unwrap();
+
+        self.insert_lua_file_loader(&fname, true);
+    }
+
+    fn insert_code_for_lua_file(&mut self) {
+        self.buf.append("-- lua file");
+        if self.file.is_none() {
+            self.buf.append("local file_gen");
+            return;
+        }
+
+        let fname = self.file.clone().unwrap();
+        self.insert_lua_file_loader(fname.as_str(), false);
+    }
+
+    fn insert_lua_file_loader(&mut self, fname: &str, inline: bool) {
+        self.buf
+            .append(&format!("local fname = {}", fname.lua_quote()));
+        self.buf.append(r#"local f = assert(io.open(fname, "r"))"#);
+        self.buf.append(r#"local chunk = f:read("*a")"#);
+
+        let chunk_name = match inline {
+            true => "=(command line -e)".to_string(),
+            false => format!("@{}", fname),
+        };
+
+        let chunk_type = match inline {
+            true => "inline",
+            false => "file",
+        };
+
+        self.buf.append(&format!(
+            "local {}_gen = assert(loadstring(chunk, {}))",
+            chunk_type,
+            chunk_name.lua_quote()
+        ));
+    }
 }
 
 #[cfg(test)]

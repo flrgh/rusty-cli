@@ -9,7 +9,7 @@ pub fn try_parse_resolv_conf() -> Option<Vec<String>> {
 
     BufReader::new(file)
         .lines()
-        .filter_map(Result::ok)
+        .map_while(Result::ok)
         .for_each(|line| {
             let line = line.trim();
             let mut parts = line.split_whitespace();
