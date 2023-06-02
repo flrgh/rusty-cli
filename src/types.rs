@@ -46,12 +46,13 @@ impl Display for IpAddr {
 }
 
 impl std::str::FromStr for IpAddr {
-    type Err = net::AddrParseError;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         trim_brackets(s)
             .parse::<net::IpAddr>()
             .map(|_| IpAddr(s.to_owned()))
+            .map_err(|_| "expecting an IP address".to_string())
     }
 }
 
@@ -96,7 +97,7 @@ impl From<&str> for InvalidShdict {
 
 impl Display for InvalidShdict {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self.0)
+        write!(f, "expecting NAME SIZE")
     }
 }
 
@@ -174,10 +175,7 @@ fn shdict_from_str() {
     must_not_parse("foo -10");
 }
 
-#[derive(
-    clap::ValueEnum, Clone, Debug, Default, strum_macros::Display, strum_macros::EnumString,
-)]
-#[clap(rename_all = "lower")]
+#[derive(Clone, Debug, Default, strum_macros::Display, strum_macros::EnumString)]
 #[strum(serialize_all = "lowercase")]
 pub(crate) enum LogLevel {
     Debug,
@@ -191,8 +189,7 @@ pub(crate) enum LogLevel {
     Emerg,
 }
 
-#[derive(clap::ValueEnum, Clone, Debug, strum_macros::EnumString)]
-#[clap(rename_all = "lower")]
+#[derive(Clone, Debug, strum_macros::EnumString)]
 #[strum(serialize_all = "lowercase")]
 pub(crate) enum JitCmd {
     /// Use LuaJIT's jit.v module to output brief info of the
@@ -294,5 +291,45 @@ impl From<(usize, &String)> for ValueWithIndex {
 impl From<ValueWithIndex> for String {
     fn from(val: ValueWithIndex) -> Self {
         val.value
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct Buf {
+    lines: Vec<String>,
+    indent: usize,
+}
+
+impl Buf {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn newline(&mut self) {
+        self.lines.push(String::new());
+    }
+
+    pub fn append(&mut self, s: &str) {
+        let mut line = String::new();
+
+        if self.indent > 0 {
+            line.push_str("    ".repeat(self.indent).as_str());
+        }
+
+        line.push_str(s);
+        self.lines.push(line);
+    }
+
+    pub fn finalize(self) -> Vec<String> {
+        self.lines
+    }
+
+    pub fn indent(&mut self) {
+        self.indent += 1
+    }
+
+    pub fn dedent(&mut self) {
+        assert!(self.indent > 0);
+        self.indent -= 1
     }
 }

@@ -6,6 +6,7 @@ pub static RESTY_COMPAT_VAR: &str = "RESTY_CLI_COMPAT_VERSION";
 pub static RESTY_COMPAT_LATEST: u64 = 28;
 
 pub static TEMPLATE: &str = include_str!("nginx.conf.tpl");
+pub static TEMPLATE_NAME: &str = "nginx.conf";
 
 pub struct Vars {
     pub main_conf: Vec<String>,
@@ -16,17 +17,20 @@ pub struct Vars {
     pub worker_connections: u32,
 }
 
+fn init_template<'a>(env: &'a mut Environment) -> minijinja::Template<'a> {
+    env.add_template(TEMPLATE_NAME, TEMPLATE).unwrap();
+    env.get_template(TEMPLATE_NAME).unwrap()
+}
+
 #[test]
 fn verify_template() {
     let mut env = Environment::new();
-    env.add_template("nginx.conf", TEMPLATE).unwrap();
-    env.get_template("nginx.conf").unwrap();
+    init_template(&mut env);
 }
 
 pub fn render_config(vars: Vars) -> String {
     let mut env = Environment::new();
-    env.add_template("nginx.conf", TEMPLATE).unwrap();
-    let template = env.get_template("nginx.conf").unwrap();
+    let template = init_template(&mut env);
 
     let ctx = context! {
         main_conf => vars.main_conf,
