@@ -9,12 +9,12 @@ pub static TEMPLATE: &str = include_str!("nginx.conf.tpl");
 pub static TEMPLATE_NAME: &str = "nginx.conf";
 
 pub struct Vars {
+    pub events_conf: Vec<String>,
     pub main_conf: Vec<String>,
     pub stream_enabled: bool,
     pub stream_conf: Vec<String>,
     pub http_conf: Vec<String>,
     pub lua_loader: Vec<String>,
-    pub worker_connections: u32,
 }
 
 fn init_template<'a>(env: &'a mut Environment) -> minijinja::Template<'a> {
@@ -38,7 +38,7 @@ pub fn render_config(vars: Vars) -> String {
         stream_enabled => vars.stream_enabled,
         stream_conf => vars.stream_conf,
         lua_loader => vars.lua_loader,
-        worker_connections => vars.worker_connections,
+        events_conf => vars.events_conf,
         resty_compat_version => get_resty_compat_version(),
     };
 

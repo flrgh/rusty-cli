@@ -11,7 +11,9 @@ pid logs/nginx.pid;
 {%- endfor %}
 
 events {
-    worker_connections {{ worker_connections }};
+    {% for line in events_conf %}
+    {{ line }}
+    {%- endfor %}
 }
 
 {% if stream_enabled %}

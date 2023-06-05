@@ -87,7 +87,7 @@ Options:
           Print help (see more with '--help')"#;
 
 fn resolver(user: &mut UserArgs) -> String {
-    let mut ns = user.nameservers.clone();
+    let mut ns: Vec<String> = user.nameservers.iter().map(IpAddr::to_string).collect();
 
     if !user.resolve_ipv6 {
         ns.push("ipv6=off".to_string());
@@ -292,6 +292,23 @@ impl Runner {
             Self::Default => false,
         }
     }
+
+    fn update(&mut self, new: Runner) -> Result<(), ArgError> {
+        if let Runner::Default = self {
+            *self = new;
+            Ok(())
+        } else if self.same(&new) {
+            // e.g. we already saw --gdb and are now adding opts with --gdb-opts
+            if self.takes_opts() && !self.has_opts() && new.has_opts() {
+                *self = new;
+                Ok(())
+            } else {
+                Err(ArgError::Duplicate(new.opt_name()))
+            }
+        } else {
+            Err(ArgError::Conflict(self.arg_name(), new.arg_name()))
+        }
+    }
 }
 
 #[derive(TE, Debug)]
@@ -327,87 +344,112 @@ pub enum ArgError {
 
 impl ArgError {
     pub fn exit_code(&self) -> i32 {
-        use ArgError::*;
-
         match self {
             // I/O error
-            MissingInclude(_, _) => 2,
+            Self::MissingInclude(_, _) => 2,
 
             // yup, resty-cli returns 25 (ENOTTY) for mutually-exclusive
             // arguments
             //
             // not on purpose though, it's just a side effect of errno
             // having been set from a previous and unrelated error
-            Conflict(_, _) => 25,
+            Self::Conflict(_, _) => 25,
 
-            UnknownArgument(_) => 1,
+            Self::UnknownArgument(_) => 1,
 
-            InvalidValue {
+            Self::InvalidValue {
                 arg: _,
                 value: _,
                 err: _,
             } => 255,
-            MissingValue(_) => 255,
+            Self::MissingValue(_) => 255,
 
-            NoLuaInput => 2,
-            LuaFileNotFound(_) => 2,
+            Self::NoLuaInput => 2,
+            Self::LuaFileNotFound(_) => 2,
 
-            Duplicate(_) => 255,
+            Self::Duplicate(_) => 255,
         }
     }
 }
 
-fn set_runner(current: &mut Runner, new: Runner) -> Result<(), ArgError> {
-    if current.same(&Runner::Default) {
-        *current = new;
-        return Ok(());
-    } else if current.same(&new) {
-        if current.takes_opts() {
-            if current.has_opts() {
-                return Err(ArgError::Duplicate(new.opt_name()));
-            } else {
-                *current = new;
-                return Ok(());
+pub trait CliOpt {
+    fn get_arg(&self, optarg: &mut Option<String>) -> Result<String, ArgError>;
+
+    fn parse_to<T>(&self, value: &mut Option<String>) -> Result<T, ArgError>
+    where
+        T: std::str::FromStr,
+        T::Err: Display;
+
+    fn push_to<T>(&self, items: &mut Vec<T>, value: &mut Option<String>) -> Result<(), ArgError>
+    where
+        T: std::str::FromStr,
+        T::Err: Display,
+    {
+        Ok(items.push(self.parse_to::<T>(value)?))
+    }
+
+    fn is_opt(&self) -> bool;
+
+    fn parse_opt_eq(&self) -> Option<(String, String)>;
+}
+
+impl CliOpt for &str {
+    fn get_arg(&self, optarg: &mut Option<String>) -> Result<String, ArgError> {
+        optarg
+            .take()
+            .ok_or(ArgError::MissingValue((*self).to_string()))
+    }
+
+    fn parse_to<T>(&self, value: &mut Option<String>) -> Result<T, ArgError>
+    where
+        T: std::str::FromStr,
+        T::Err: Display,
+    {
+        let value = self.get_arg(value)?;
+
+        match value.parse::<T>() {
+            Ok(v) => Ok(v),
+            Err(e) => Err(ArgError::InvalidValue {
+                arg: self.to_string(),
+                value,
+                err: e.to_string(),
+            }),
+        }
+    }
+
+    fn is_opt(&self) -> bool {
+        self.starts_with("--") || self.starts_with('-')
+    }
+
+    fn parse_opt_eq(&self) -> Option<(String, String)> {
+        if self.is_opt() {
+            if let Some((arg, optarg)) = self.split_once('=') {
+                return Some((arg.to_string(), optarg.to_string()));
             }
-        } else {
-            return Err(ArgError::Duplicate(new.arg_name()));
         }
+        None
+    }
+}
+
+impl CliOpt for String {
+    fn get_arg(&self, optarg: &mut Option<String>) -> Result<String, ArgError> {
+        self.as_str().get_arg(optarg)
     }
 
-    Err(ArgError::Conflict(current.arg_name(), new.arg_name()))
-}
-
-fn is_opt(s: &str) -> bool {
-    s.starts_with("--") || s.starts_with('-')
-}
-
-fn parse_opt_eq(s: &str) -> Option<(String, String)> {
-    if is_opt(s) {
-        if let Some((arg, optarg)) = s.split_once('=') {
-            return Some((arg.to_string(), optarg.to_string()));
-        }
+    fn parse_to<T>(&self, value: &mut Option<String>) -> Result<T, ArgError>
+    where
+        T: std::str::FromStr,
+        T::Err: Display,
+    {
+        self.as_str().parse_to::<T>(value)
     }
-    None
-}
 
-fn required_opt_arg(arg: &str, value: &mut Option<String>) -> Result<String, ArgError> {
-    value.take().ok_or(ArgError::MissingValue(arg.to_owned()))
-}
+    fn is_opt(&self) -> bool {
+        self.as_str().is_opt()
+    }
 
-fn parse_to<T>(arg: &str, value: &mut Option<String>) -> Result<T, ArgError>
-where
-    T: std::str::FromStr,
-    T::Err: Display,
-{
-    let value = required_opt_arg(arg, value)?;
-
-    match value.parse::<T>() {
-        Ok(v) => Ok(v),
-        Err(e) => Err(ArgError::InvalidValue {
-            arg: arg.to_owned(),
-            value,
-            err: e.to_string(),
-        }),
+    fn parse_opt_eq(&self) -> Option<(String, String)> {
+        self.as_str().parse_opt_eq()
     }
 }
 
@@ -452,7 +494,13 @@ impl Action {
             }
 
             Action::Main(mut user) => {
-                let prefix = Prefix::new().expect("Failed creating prefix directory");
+                let prefix = match Prefix::new() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("failed creating prefix directory: {}", e);
+                        return 2;
+                    }
+                };
 
                 if let Some(jit) = &user.jit_cmd {
                     user.inline_lua.insert(0, jit.to_lua());
@@ -469,9 +517,9 @@ impl Action {
                         &user.inline_lua,
                         &user.lua_args,
                         user.arg_0.clone(),
-                        user.all_args.len(),
+                        user.arg_c,
                     ),
-                    worker_connections: user.worker_connections,
+                    events_conf: vec![format!("worker_connections {};", user.worker_connections)],
                 };
 
                 let conf_path = prefix.conf.join("nginx.conf");
@@ -505,7 +553,7 @@ pub struct UserArgs {
     pub(crate) errlog_level: LogLevel,
     pub(crate) lua_package_path: Vec<String>,
 
-    pub(crate) nameservers: Vec<String>,
+    pub(crate) nameservers: Vec<IpAddr>,
     pub(crate) resolve_ipv6: bool,
 
     pub(crate) http_conf: Vec<String>,
@@ -520,17 +568,17 @@ pub struct UserArgs {
 
     pub(crate) runner: Runner,
 
-    pub(crate) all_args: Vec<String>,
+    pub(crate) arg_c: usize,
     pub(crate) arg_0: String,
 }
 
-fn default_nameservers() -> Vec<String> {
-    let mut ns: Vec<String> = try_parse_resolv_conf().into_iter().flatten().collect();
+fn default_nameservers() -> Vec<IpAddr> {
+    let mut ns = try_parse_resolv_conf();
 
     if ns.is_empty() {
         // fall back to google dns for compatibility with resty-cli
-        ns.push("8.8.8.8".to_owned());
-        ns.push("8.8.4.4".to_owned());
+        ns.push("8.8.8.8".parse().unwrap());
+        ns.push("8.8.4.4".parse().unwrap());
     }
 
     ns
@@ -538,12 +586,12 @@ fn default_nameservers() -> Vec<String> {
 
 pub fn new_parse() -> Result<Action, ArgError> {
     let mut user = UserArgs {
-        all_args: env::args().collect(),
+        arg_c: env::args().len(),
         worker_connections: 64,
         ..Default::default()
     };
 
-    let mut nameservers: Vec<IpAddr> = vec![];
+    let runner = &mut user.runner;
 
     let mut show_version = false;
 
@@ -555,15 +603,19 @@ pub fn new_parse() -> Result<Action, ArgError> {
         let mut combined_opt_arg = false;
         let mut arg = arg;
 
-        if let Some((a, o)) = parse_opt_eq(&arg) {
-            arg = a;
-            optarg = Some(o);
-            combined_opt_arg = true;
-        } else if is_opt(&arg) {
-            optarg = args.pop_front();
+        if arg.is_opt() {
+            if let Some((a, o)) = arg.parse_opt_eq() {
+                arg = a;
+                optarg = Some(o);
+                combined_opt_arg = true;
+            } else {
+                optarg = args.pop_front();
+            }
         }
 
         let mut end_of_args = false;
+
+        let optarg = &mut optarg;
 
         match arg.as_str() {
             "-v" | "-V" | "--version" => {
@@ -577,69 +629,62 @@ pub fn new_parse() -> Result<Action, ArgError> {
                 return Ok(Action::Help);
             }
 
-            "--gdb" => set_runner(&mut user.runner, Runner::Gdb(None))?,
+            "--gdb" => runner.update(Runner::Gdb(None))?,
 
             "--gdb-opts" => {
-                let opts = required_opt_arg(&arg, &mut optarg)?;
-                set_runner(&mut user.runner, Runner::Gdb(Some(opts)))?;
+                let opts = arg.get_arg(optarg)?;
+                runner.update(Runner::Gdb(Some(opts)))?;
             }
 
-            "--rr" => {
-                set_runner(&mut user.runner, Runner::RR)?;
-            }
+            "--rr" => runner.update(Runner::RR)?,
 
-            "--stap" => {
-                set_runner(&mut user.runner, Runner::Stap(None))?;
-            }
+            "--stap" => runner.update(Runner::Stap(None))?,
 
             "--stap-opts" => {
-                let opts = required_opt_arg(&arg, &mut optarg)?;
-                set_runner(&mut user.runner, Runner::Stap(Some(opts)))?;
+                let opts = arg.get_arg(optarg)?;
+                runner.update(Runner::Stap(Some(opts)))?;
             }
 
             "--user-runner" => {
-                let opts = required_opt_arg(&arg, &mut optarg)?;
-                set_runner(&mut user.runner, Runner::User(opts))?;
+                let opts = arg.get_arg(optarg)?;
+                runner.update(Runner::User(opts))?;
             }
 
-            "--valgrind" => {
-                set_runner(&mut user.runner, Runner::Valgrind(None))?;
-            }
+            "--valgrind" => runner.update(Runner::Valgrind(None))?,
 
             "--valgrind-opts" => {
-                let opts = required_opt_arg(&arg, &mut optarg)?;
-                set_runner(&mut user.runner, Runner::Valgrind(Some(opts)))?;
+                let opts = arg.get_arg(optarg)?;
+                runner.update(Runner::Valgrind(Some(opts)))?;
             }
 
             "-c" => {
-                user.worker_connections = parse_to(&arg, &mut optarg)?;
+                user.worker_connections = arg.parse_to(optarg)?;
             }
 
             "--http-conf" => {
-                let value = required_opt_arg(&arg, &mut optarg)?;
-                user.http_conf.push(value);
+                arg.push_to(&mut user.http_conf, optarg)?;
             }
 
             "--http-include" => {
-                let value = required_opt_arg(&arg, &mut optarg)?;
+                let value = arg.get_arg(optarg)?;
                 user.http_include.push(include_file("http", value)?);
             }
 
             "--main-conf" => {
-                user.main_conf.push(required_opt_arg(&arg, &mut optarg)?);
+                arg.push_to(&mut user.main_conf, optarg)?;
             }
 
             "--main-include" => {
-                let value = required_opt_arg(&arg, &mut optarg)?;
+                let value = arg.get_arg(optarg)?;
                 user.main_include.push(include_file("main", value)?);
             }
 
             "--errlog-level" => {
-                user.errlog_level = parse_to(&arg, &mut optarg)?;
+                user.errlog_level = arg.parse_to(optarg)?;
             }
 
             "--nginx" => {
-                let value = required_opt_arg(&arg, &mut optarg)?;
+                let value = arg.get_arg(optarg)?;
                 user.nginx_bin = Some(value);
 
                 if show_version {
@@ -652,11 +697,11 @@ pub fn new_parse() -> Result<Action, ArgError> {
             }
 
             "--stream-conf" => {
-                user.stream_conf.push(required_opt_arg(&arg, &mut optarg)?);
+                arg.push_to(&mut user.stream_conf, optarg)?;
             }
 
             "--ns" => {
-                nameservers.push(parse_to(&arg, &mut optarg)?);
+                arg.push_to(&mut user.nameservers, optarg)?;
             }
 
             "--resolve-ipv6" => {
@@ -664,27 +709,25 @@ pub fn new_parse() -> Result<Action, ArgError> {
             }
 
             "--shdict" => {
-                user.user_shdicts.push(parse_to(&arg, &mut optarg)?);
+                arg.push_to(&mut user.user_shdicts, optarg)?;
             }
 
             "-I" => {
-                user.lua_package_path
-                    .push(required_opt_arg(&arg, &mut optarg)?);
+                arg.push_to(&mut user.lua_package_path, optarg)?;
             }
 
             "-j" => {
-                user.jit_cmd = Some(parse_to(&arg, &mut optarg)?);
+                user.jit_cmd = Some(arg.parse_to(optarg)?);
             }
 
             "-l" => {
-                let value = required_opt_arg(&arg, &mut optarg)?;
+                let value = arg.get_arg(optarg)?;
                 user.inline_lua
                     .push(format!("require({})", value.lua_quote()));
             }
 
             "-e" => {
-                let value = required_opt_arg(&arg, &mut optarg)?;
-                user.inline_lua.push(value);
+                arg.push_to(&mut user.inline_lua, optarg)?;
             }
 
             "--" => {
@@ -693,7 +736,7 @@ pub fn new_parse() -> Result<Action, ArgError> {
             }
 
             _ => {
-                if is_opt(&arg) {
+                if arg.is_opt() {
                     return Err(ArgError::UnknownArgument(arg));
                 } else {
                     end_of_args = true;
@@ -702,7 +745,7 @@ pub fn new_parse() -> Result<Action, ArgError> {
             }
         }
 
-        if let Some(value) = optarg {
+        if let Some(value) = optarg.take() {
             if combined_opt_arg {
                 return Err(ArgError::InvalidValue {
                     arg,
@@ -735,8 +778,6 @@ pub fn new_parse() -> Result<Action, ArgError> {
         }
     }
 
-    user.nameservers
-        .extend(nameservers.iter().map(|ip| ip.to_string()));
     if user.nameservers.is_empty() {
         user.nameservers.extend(default_nameservers());
     }
