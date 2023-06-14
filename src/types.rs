@@ -45,9 +45,9 @@ impl Display for IpAddr {
     }
 }
 
-impl Into<String> for IpAddr {
-    fn into(self) -> String {
-        self.0
+impl From<IpAddr> for String {
+    fn from(val: IpAddr) -> Self {
+        val.0
     }
 }
 
@@ -80,9 +80,9 @@ fn test_ip_addr_from_str() {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct Shdict(String);
 
-impl Into<String> for Shdict {
-    fn into(self) -> String {
-        self.0
+impl From<Shdict> for String {
+    fn from(val: Shdict) -> Self {
+        val.0
     }
 }
 

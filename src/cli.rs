@@ -385,7 +385,8 @@ pub trait CliOpt {
         T: std::str::FromStr,
         T::Err: Display,
     {
-        Ok(items.push(self.parse_to::<T>(value)?))
+        items.push(self.parse_to::<T>(value)?);
+        Ok(())
     }
 
     fn is_opt(&self) -> bool;
