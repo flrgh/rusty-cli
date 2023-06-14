@@ -45,6 +45,12 @@ impl Display for IpAddr {
     }
 }
 
+impl From<IpAddr> for String {
+    fn from(val: IpAddr) -> Self {
+        val.0
+    }
+}
+
 impl std::str::FromStr for IpAddr {
     type Err = String;
 
@@ -73,6 +79,12 @@ fn test_ip_addr_from_str() {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct Shdict(String);
+
+impl From<Shdict> for String {
+    fn from(val: Shdict) -> Self {
+        val.0
+    }
+}
 
 impl Display for Shdict {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
