@@ -2,11 +2,11 @@ use minijinja::{context, Environment};
 use std::env;
 use std::path::PathBuf;
 
-pub static RESTY_COMPAT_VAR: &str = "RESTY_CLI_COMPAT_VERSION";
-pub static RESTY_COMPAT_LATEST: u64 = 28;
+const RESTY_COMPAT_VAR: &str = "RESTY_CLI_COMPAT_VERSION";
+const RESTY_COMPAT_LATEST: u64 = 28;
 
-pub static TEMPLATE: &str = include_str!("nginx.conf.tpl");
-pub static TEMPLATE_NAME: &str = "nginx.conf";
+const TEMPLATE: &str = include_str!("nginx.conf.tpl");
+const TEMPLATE_NAME: &str = "nginx.conf";
 
 pub struct Vars {
     pub events_conf: Vec<String>,

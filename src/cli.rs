@@ -14,9 +14,9 @@ use std::process;
 use std::process::Command;
 use thiserror::Error as TE;
 
-pub static VERSION: &str = "0.1.0";
+const VERSION: &str = "0.1.0";
 
-pub static USAGE: &str = r#"Usage: rusty-cli [OPTIONS] [lua-file] [args]...
+const USAGE: &str = r#"Usage: rusty-cli [OPTIONS] [lua-file] [args]...
 
 Arguments:
   [lua-file]
