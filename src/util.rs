@@ -43,7 +43,7 @@ pub fn split_shell_args(s: &str) -> Vec<String> {
 }
 
 pub fn join_shell_args(args: Vec<&str>) -> String {
-    shlex::join(args.into_iter())
+    shlex::join(args)
 }
 
 #[cfg(test)]
