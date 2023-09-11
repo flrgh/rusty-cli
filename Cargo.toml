@@ -32,7 +32,7 @@ lto = "thin"
 
 # cargo-dist
 [workspace.metadata.dist]
-cargo-dist-version = "0.0.7"
+cargo-dist-version = "0.2.0"
 rust-toolchain-version = "1.67.1"
 ci = ["github"]
 installers = ["shell"]
