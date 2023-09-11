@@ -585,9 +585,9 @@ fn default_nameservers() -> Vec<IpAddr> {
     ns
 }
 
-pub fn new_parse() -> Result<Action, ArgError> {
+pub fn init(args: Vec<String>) -> Result<Action, ArgError> {
     let mut user = UserArgs {
-        arg_c: env::args().len(),
+        arg_c: args.len(),
         worker_connections: 64,
         ..Default::default()
     };
@@ -596,7 +596,7 @@ pub fn new_parse() -> Result<Action, ArgError> {
 
     let mut show_version = false;
 
-    let mut args: VecDeque<String> = env::args().collect();
+    let mut args: VecDeque<String> = args.into();
     user.arg_0 = args.pop_front().expect("empgy ARGV[0]");
 
     while let Some(arg) = args.pop_front() {

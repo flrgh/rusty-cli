@@ -8,11 +8,10 @@ mod run;
 mod types;
 mod util;
 
-use crate::cli::*;
 use std::process::exit;
 
 fn main() {
-    match new_parse() {
+    match cli::init(std::env::args().collect()) {
         Err(e) => {
             eprintln!("{}", e);
             exit(e.exit_code());
