@@ -394,11 +394,11 @@ pub trait CliOpt {
     fn parse_opt_eq(&self) -> Option<(String, String)>;
 }
 
-impl CliOpt for &str {
+impl<S: AsRef<str>> CliOpt for S {
     fn get_arg(&self, optarg: &mut Option<String>) -> Result<String, ArgError> {
         optarg
             .take()
-            .ok_or(ArgError::MissingValue((*self).to_string()))
+            .ok_or(ArgError::MissingValue(self.as_ref().to_string()))
     }
 
     fn parse_to<T>(&self, value: &mut Option<String>) -> Result<T, ArgError>
@@ -411,7 +411,7 @@ impl CliOpt for &str {
         match value.parse::<T>() {
             Ok(v) => Ok(v),
             Err(e) => Err(ArgError::InvalidValue {
-                arg: self.to_string(),
+                arg: self.as_ref().to_string(),
                 value,
                 err: e.to_string(),
             }),
@@ -419,38 +419,17 @@ impl CliOpt for &str {
     }
 
     fn is_opt(&self) -> bool {
-        self.starts_with("--") || self.starts_with('-')
+        let s = self.as_ref();
+        s.starts_with("--") || s.starts_with('-')
     }
 
     fn parse_opt_eq(&self) -> Option<(String, String)> {
         if self.is_opt() {
-            if let Some((arg, optarg)) = self.split_once('=') {
+            if let Some((arg, optarg)) = self.as_ref().split_once('=') {
                 return Some((arg.to_string(), optarg.to_string()));
             }
         }
         None
-    }
-}
-
-impl CliOpt for String {
-    fn get_arg(&self, optarg: &mut Option<String>) -> Result<String, ArgError> {
-        self.as_str().get_arg(optarg)
-    }
-
-    fn parse_to<T>(&self, value: &mut Option<String>) -> Result<T, ArgError>
-    where
-        T: std::str::FromStr,
-        T::Err: Display,
-    {
-        self.as_str().parse_to::<T>(value)
-    }
-
-    fn is_opt(&self) -> bool {
-        self.as_str().is_opt()
-    }
-
-    fn parse_opt_eq(&self) -> Option<(String, String)> {
-        self.as_str().parse_opt_eq()
     }
 }
 
