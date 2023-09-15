@@ -12,7 +12,7 @@ use std::fs::File;
 use std::io::Write as IoWrite;
 use std::process;
 use std::process::Command;
-use thiserror::Error as TE;
+use thiserror::Error as ThisError;
 
 const VERSION: &str = "0.1.0";
 
@@ -311,7 +311,7 @@ impl Runner {
     }
 }
 
-#[derive(TE, Debug)]
+#[derive(ThisError, Debug)]
 pub enum ArgError {
     #[error("ERROR: could not find {0} include file '{1}'")]
     MissingInclude(String, String),
