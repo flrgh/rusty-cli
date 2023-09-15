@@ -9,7 +9,6 @@ use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::fs::File;
-use std::io::Write as IoWrite;
 use std::process;
 use std::process::Command;
 use thiserror::Error as ThisError;
@@ -486,27 +485,35 @@ impl Action {
                     user.inline_lua.insert(0, jit.to_lua());
                 }
 
+                let lua_loader = match generate_lua_loader(
+                    &prefix,
+                    &user.lua_file,
+                    &user.inline_lua,
+                    &user.lua_args,
+                    user.arg_0.clone(),
+                    user.arg_c,
+                ) {
+                    Ok(ll) => ll,
+                    Err(e) => {
+                        eprintln!("failed to generate inline lua: {}", e);
+                        return e.raw_os_error().unwrap_or(2);
+                    }
+                };
+
                 let vars = Vars {
                     main_conf: main_conf(&mut user),
                     stream_enabled: !user.no_stream,
                     stream_conf: stream_conf(&mut user),
                     http_conf: http_conf(&mut user),
-                    lua_loader: generate_lua_loader(
-                        &prefix,
-                        &user.lua_file,
-                        &user.inline_lua,
-                        &user.lua_args,
-                        user.arg_0.clone(),
-                        user.arg_c,
-                    ),
                     events_conf: vec![format!("worker_connections {};", user.worker_connections)],
+                    lua_loader,
                 };
 
                 let conf_path = prefix.conf.join("nginx.conf");
-                let mut fh = std::fs::File::create(conf_path).unwrap();
-                fh.write_all(render_config(vars).as_bytes()).unwrap();
-                fh.flush().unwrap();
-                drop(fh);
+                if let Err(e) = fs::write(conf_path, render_config(vars)) {
+                    eprintln!("failed writing nginx.conf file: {}", e);
+                    return 2;
+                }
 
                 let ngx = NginxExec {
                     bin: find_nginx_bin(user.nginx_bin).to_str().unwrap().to_string(),

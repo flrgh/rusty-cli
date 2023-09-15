@@ -1,7 +1,6 @@
 use crate::types::*;
 use std::cmp::max;
 use std::fs;
-use std::io::Write as IoWrite;
 
 // resty-cli has a fancier implementation that stores all observed "levels" in
 // a hash. Then it iterates over 1..$max_level and checks for hash membership,
@@ -63,7 +62,7 @@ pub(crate) fn generate_lua_loader(
     lua_args: &Vec<String>,
     arg_0: String,
     all_args_len: usize,
-) -> Vec<String> {
+) -> Result<Vec<String>, std::io::Error> {
     let buf = Buf::new();
     let inline_filename = prefix.conf.join("a.lua").to_str().unwrap().to_owned();
 
@@ -132,7 +131,7 @@ struct LuaGenerator<'a> {
 }
 
 impl<'a> LuaGenerator<'a> {
-    pub fn generate(mut self) -> Vec<String> {
+    pub fn generate(mut self) -> Result<Vec<String>, std::io::Error> {
         self.buf.append("local gen");
         self.buf.append("do");
         self.buf.indent();
@@ -140,7 +139,7 @@ impl<'a> LuaGenerator<'a> {
         self.insert_lua_args();
         self.buf.newline();
 
-        self.insert_inline_lua();
+        self.insert_inline_lua()?;
         self.buf.newline();
 
         self.insert_code_for_lua_file();
@@ -156,7 +155,7 @@ impl<'a> LuaGenerator<'a> {
         self.buf.dedent();
         self.buf.append("end");
 
-        self.buf.finalize()
+        Ok(self.buf.finalize())
     }
 
     fn insert_lua_args(&mut self) {
@@ -194,22 +193,22 @@ impl<'a> LuaGenerator<'a> {
         self.buf.append(&format!("arg[{}] = {}", 0 - pos, prog));
     }
 
-    fn insert_inline_lua(&mut self) {
+    fn insert_inline_lua(&mut self) -> Result<(), std::io::Error> {
         self.buf.append("-- inline lua code");
 
         if self.inline.is_empty() {
-            return;
+            return Ok(());
         }
 
         self.buf.append("local inline_gen");
 
+        let contents = self.inline.join("; ");
         let fname = self.inline_filename.clone();
-        let mut fh = fs::File::create(&fname).unwrap();
-
-        fh.write_all(self.inline.join("; ").as_bytes()).unwrap();
-        fh.flush().unwrap();
+        fs::write(&fname, contents)?;
 
         self.insert_lua_file_loader(&fname, true);
+
+        Ok(())
     }
 
     fn insert_code_for_lua_file(&mut self) {
