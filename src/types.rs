@@ -273,39 +273,6 @@ impl Drop for Prefix {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) struct ValueWithIndex {
-    pub(crate) value: String,
-    pub(crate) index: usize,
-}
-
-impl PartialOrd for ValueWithIndex {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.index.partial_cmp(&other.index)
-    }
-}
-
-impl Ord for ValueWithIndex {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.index.cmp(&other.index)
-    }
-}
-
-impl From<(usize, &String)> for ValueWithIndex {
-    fn from(idx_val: (usize, &String)) -> Self {
-        ValueWithIndex {
-            index: idx_val.0,
-            value: idx_val.1.to_owned(),
-        }
-    }
-}
-
-impl From<ValueWithIndex> for String {
-    fn from(val: ValueWithIndex) -> Self {
-        val.value
-    }
-}
-
 #[derive(Debug, Default)]
 pub(crate) struct Buf {
     lines: Vec<String>,
