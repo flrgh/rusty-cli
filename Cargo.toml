@@ -22,6 +22,12 @@ libc = "0.2"
 nix = { version = "0.26.2", features = [ "signal", "process" ] }
 thiserror = "1.0.40"
 
+[profile.release]
+opt-level = "z"
+strip = true
+codegen-units = 1
+lto = true
+
 # cargo-dist
 [profile.dist]
 inherits = "release"
