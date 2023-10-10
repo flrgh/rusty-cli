@@ -93,7 +93,10 @@ run() {
 
     cmd+=( "${ARGS[@]}" )
 
-    env - PATH="$RUNNER_PATH" "${cmd[@]}" \
+    env - \
+        PATH="$RUNNER_PATH" \
+        RESTY_CLI_COMPAT_VERSION="${RESTY_CLI_COMPAT_VERSION:-0.28}" \
+        "${cmd[@]}" \
         > "$TMP/$name.stdout" \
         2> "$TMP/$name.stderr"
 

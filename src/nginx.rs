@@ -69,7 +69,7 @@ pub fn find_nginx_bin(nginx: Option<String>) -> PathBuf {
     PathBuf::from("nginx")
 }
 
-fn get_resty_compat_version() -> u64 {
+pub fn get_resty_compat_version() -> u64 {
     // TODO: maybe make this a build config item?
     match env::var_os(RESTY_COMPAT_VAR) {
         Some(value) => {
