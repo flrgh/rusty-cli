@@ -1,125 +1,99 @@
-use libc::ESRCH;
-use nix::sys::signal as ns;
-use signal_child::signal;
-use signal_child::signal::Signal;
-use std::convert::TryFrom;
+use libc::{c_int, kill, pid_t, ESRCH};
+use nix::sys::signal::{SigSet, SigmaskHow::SIG_BLOCK, Signal};
+use nix::sys::signal::{
+    SIGCHLD, SIGHUP, SIGINT, SIGKILL, SIGPIPE, SIGQUIT, SIGTERM, SIGUSR1, SIGUSR2, SIGWINCH,
+};
+use std::io::Error;
 use std::process::{Child, Command};
-use std::sync::Arc;
-use std::sync::{Condvar, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use libc::{
-    SIGCHLD, SIGHUP, SIGINT, SIGKILL, SIGPIPE, SIGQUIT, SIGTERM, SIGUSR1, SIGUSR2, SIGWINCH,
-};
-
-const HANDLED: [i32; 9] = [
+const SIGNALS: [Signal; 9] = [
     SIGINT, SIGTERM, SIGQUIT, SIGHUP, SIGUSR1, SIGUSR2, SIGWINCH, SIGPIPE, SIGCHLD,
 ];
 
-const SIG_DFL: nix::sys::signal::SigHandler = nix::sys::signal::SigHandler::SigDfl;
+fn send_signal(proc: &Child, sig: Signal) {
+    let pid = proc.id() as pid_t;
+    let ret = unsafe { kill(pid, sig as c_int) };
 
-lazy_static! {
-    static ref COND: Arc<(Mutex<i32>, Condvar)> = Arc::new((Mutex::new(0), Condvar::new()));
-}
-
-fn send_signal(pid: u32, signum: i32) {
-    let sig = Signal::try_from(signum).expect("Invalid signal {signum}");
-
-    signal(pid as i32, sig)
-        .map_err(|e| {
-            match e.raw_os_error() {
-                // the child process is already gone
-                // https://github.com/openresty/resty-cli/pull/39
-                Some(ESRCH) => Ok(()),
-                _ => Err(e),
+    if ret < 0 {
+        let e = Error::last_os_error();
+        match e.raw_os_error() {
+            None => {}
+            Some(ESRCH) => {} // child process is already gone
+            Some(_) => {
+                eprintln!("failed sending signal to {pid}: {e}");
             }
-        })
-        .expect("Failed sending signal to child process");
-}
-
-fn send_then_kill(pid: u32, signum: i32) {
-    send_signal(pid, signum);
-    thread::sleep(Duration::from_millis(100));
-    send_signal(pid, SIGKILL);
-}
-
-fn block_wait(mut proc: Child) -> Option<i32> {
-    proc.wait()
-        .expect("Failed waiting for child process to exit")
-        .code()
-}
-
-fn set_caught_signal(signum: i32) {
-    if let Ok(mut lock) = COND.0.try_lock() {
-        if *lock == 0 {
-            *lock = signum;
-            COND.1.notify_all();
         }
-        drop(lock);
     }
 }
 
-extern "C" fn sig_handler(signum: i32) {
-    set_caught_signal(signum);
+fn send_then_kill(proc: &Child, sig: Signal) {
+    send_signal(proc, sig);
+    thread::sleep(Duration::from_millis(100));
+    send_signal(proc, SIGKILL);
+}
 
-    unsafe {
-        let sig = ns::Signal::try_from(signum).unwrap();
-        ns::signal(sig, SIG_DFL).unwrap();
+fn block_wait(mut proc: Child) -> i32 {
+    match proc.wait() {
+        Ok(status) => status.code().unwrap_or(0),
+        Err(e) => {
+            eprintln!("failed waiting for child process to exit: {e}");
+            send_signal(&proc, SIGKILL);
+            128 + SIGKILL as i32
+        }
     }
 }
 
 pub fn run(mut cmd: Command) -> i32 {
-    let (lock, cond) = &*COND.clone();
-
-    for signum in HANDLED {
-        let sig = ns::Signal::try_from(signum).unwrap();
-        unsafe { ns::signal(sig, ns::SigHandler::Handler(sig_handler)) }.unwrap();
-    }
-
     let proc = match cmd.spawn() {
         Ok(child) => child,
         Err(e) => {
-            eprintln!(
-                "ERROR: failed to run command {}: {}",
-                cmd.get_program().to_str().unwrap(),
-                e
-            );
+            let prog = cmd.get_program().to_str().unwrap();
+            eprintln!("ERROR: failed to run command {prog}: {e}");
             return 2;
         }
     };
 
-    let pid = proc.id();
+    let caught = {
+        let mask = SigSet::from_iter(SIGNALS);
+        let old_mask = mask
+            .thread_swap_mask(SIG_BLOCK)
+            .expect("failed to block signals");
 
-    let mut caught = lock.lock().unwrap();
-    while *caught == 0 {
-        caught = cond.wait(caught).unwrap();
-    }
+        let signal = mask.wait().expect("failed to wait for signal");
 
-    match *caught {
-        SIGCHLD => block_wait(proc).unwrap_or(0),
+        old_mask
+            .thread_set_mask()
+            .expect("failed to restore thread signal mask");
+
+        signal
+    };
+
+    match caught {
+        SIGCHLD => block_wait(proc),
         SIGINT => {
-            send_then_kill(pid, SIGQUIT);
+            send_then_kill(&proc, SIGQUIT);
             block_wait(proc);
-            128 + SIGINT
+            128 + SIGINT as i32
         }
         SIGPIPE => {
-            send_then_kill(pid, SIGQUIT);
+            send_then_kill(&proc, SIGQUIT);
             block_wait(proc);
-            128 + SIGPIPE
+            128 + SIGPIPE as i32
         }
         SIGHUP => {
-            send_signal(pid, SIGQUIT);
-            block_wait(proc).unwrap_or(0)
+            send_signal(&proc, SIGQUIT);
+            block_wait(proc)
         }
         SIGTERM => {
-            send_signal(pid, SIGTERM);
+            send_signal(&proc, SIGTERM);
             block_wait(proc);
-            128 + SIGTERM
+            128 + SIGTERM as i32
         }
         other => {
-            send_signal(pid, other);
-            block_wait(proc).unwrap_or(0)
+            send_signal(&proc, other);
+            block_wait(proc)
         }
     }
 }

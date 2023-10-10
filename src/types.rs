@@ -1,4 +1,3 @@
-use errno::errno;
 use libc::{c_char, mkdtemp};
 use std::ffi;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
@@ -16,8 +15,7 @@ pub fn tempdir(tpl: Option<&str>) -> io::Result<String> {
         let res = mkdtemp(tpl.as_ptr() as *mut c_char);
 
         if res.is_null() {
-            let e = errno();
-            return Err(io::Error::from_raw_os_error(e.0));
+            return Err(std::io::Error::last_os_error());
         }
 
         Ok(ffi::CStr::from_ptr(res).to_str().unwrap().to_string())
