@@ -162,6 +162,7 @@ pub struct NginxExec {
     prefix: String,
     runner: Runner,
     bin: String,
+    label: Option<String>,
 }
 
 impl From<NginxExec> for Command {
@@ -179,6 +180,11 @@ impl From<NginxExec> for Command {
             String::from("-c"),
             String::from("conf/nginx.conf"),
         ];
+
+        if let Some(label) = ngx.label {
+            nginx_args.insert(0, String::from("-g"));
+            nginx_args.insert(1, label);
+        }
 
         let bin: String;
         let mut args: Vec<String> = vec![];
@@ -202,9 +208,7 @@ impl From<NginxExec> for Command {
                 }
                 args.push("-c".to_owned());
                 nginx_args.insert(0, nginx);
-                args.push(join_shell_args(
-                    nginx_args.iter_mut().map(|s| s.as_str()).collect(),
-                ));
+                args.push(join_shell_args(&nginx_args));
             }
             Runner::Valgrind(opts) => {
                 bin = "valgrind".to_owned();
@@ -485,6 +489,28 @@ impl Action {
                     user.inline_lua.insert(0, jit.to_lua());
                 }
 
+                let mut label = None;
+                if get_resty_compat_version() >= 30 {
+                    let mut s = String::from("# ");
+                    if !user.inline_lua.is_empty() {
+                        s.push_str("-e '");
+                        s.push_str(user.inline_lua.join("; ").as_ref());
+                        s.push('\'');
+
+                        if user.lua_file.is_some() {
+                            s.push(' ');
+                        }
+                    }
+
+                    if let Some(fname) = &user.lua_file {
+                        s.push_str(fname);
+                    }
+
+                    s = s.replace(['\r', '\n'], "");
+
+                    label = Some(s);
+                }
+
                 let lua_loader = match generate_lua_loader(
                     &prefix,
                     &user.lua_file,
@@ -519,6 +545,7 @@ impl Action {
                     bin: find_nginx_bin(user.nginx_bin).to_str().unwrap().to_string(),
                     prefix: prefix.root.to_str().unwrap().to_string(),
                     runner: user.runner,
+                    label,
                 };
 
                 run(Command::from(ngx))
