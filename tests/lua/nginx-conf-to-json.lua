@@ -1,3 +1,6 @@
+local cjson = require("cjson")
+cjson.encode_escape_forward_slash(false)
+
 local FNAME = ngx.config.prefix() .. "/conf/nginx.conf"
 local LINES = {}
 
@@ -181,4 +184,4 @@ for _, line in ipairs(LINES) do
   end
 end
 
-print(require("cjson").encode(CONF))
+print(cjson.encode(CONF))
