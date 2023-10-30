@@ -54,3 +54,6 @@ sign-tag = true
 push = true # git
 tag = true
 consolidate-commits = true
+
+[dev-dependencies]
+cargo-insta = "1.34.0"
