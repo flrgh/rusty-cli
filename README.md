@@ -105,7 +105,7 @@ CLI metadata, error messages, and nginx.conf, I recommend against using rusty-cl
         - [x] nginx.conf generation
 - [ ] automated binary releases
     - [x] x86_64-unknown-linux-gnu
-    - [ ] x86_64-unknown-linux-musl
+    - [x] x86_64-unknown-linux-musl
     - [ ] aarch64-unknown-linux-gnu
     - [ ] aarch64-unknown-linux-musl
     - [ ] x86_64-apple-darwin
