@@ -35,14 +35,13 @@ lto = "thin"
 
 # cargo-dist
 [workspace.metadata.dist]
-cargo-dist-version = "0.2.0"
-rust-toolchain-version = "1.67.1"
+cargo-dist-version = "0.4.0"
 ci = ["github"]
 installers = ["shell"]
 unix-archive = ".tar.gz"
 targets = [
 	"x86_64-unknown-linux-gnu",
-	#"x86_64-unknown-linux-musl",
+	"x86_64-unknown-linux-musl",
 	#"aarch64-unknown-linux-gnu",
 	#"aarch64-unknown-linux-musl",
 	#"x86_64-apple-darwin",
