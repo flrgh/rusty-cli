@@ -13,7 +13,7 @@ publish = true
 
 
 [dependencies]
-mktemp = { version = "0.4.1" }
+mktemp = { version = "0.5.1" }
 minijinja = "0.20.0"
 shlex = "1.2.0"
 strum = { version = "0.25", features = ["derive"] }
