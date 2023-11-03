@@ -17,7 +17,7 @@ pub struct Vars {
     pub lua_loader: Vec<String>,
 }
 
-fn init_template<'a>(env: &'a mut Environment) -> minijinja::Template<'a> {
+fn init_template<'env, 'source>(env: &'env mut Environment) -> minijinja::Template<'env, 'source> {
     env.add_template(TEMPLATE_NAME, TEMPLATE).unwrap();
     env.get_template(TEMPLATE_NAME).unwrap()
 }
