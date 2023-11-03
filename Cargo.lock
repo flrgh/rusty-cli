@@ -15,17 +15,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "getrandom"
-version = "0.2.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be4136b2a15dd319360be1c07d9933517ccf0be8f16bf62a3bee4f0d618df427"
-dependencies = [
- "cfg-if",
- "libc",
- "wasi",
-]
-
-[[package]]
 name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -44,15 +33,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "450c32bf0055201c231d737143581710b093271cc862dcc273e1c027b4bd384d"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "mktemp"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69fed8fbcd01affec44ac226784c6476a6006d98d13e33bc0ca7977aaf046bd8"
-dependencies = [
- "uuid",
 ]
 
 [[package]]
@@ -96,7 +76,6 @@ version = "0.1.0-pre-5"
 dependencies = [
  "libc",
  "minijinja",
- "mktemp",
  "nix",
  "shlex",
  "strum",
@@ -188,18 +167,3 @@ name = "unicode-ident"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
-
-[[package]]
-name = "uuid"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
-dependencies = [
- "getrandom",
-]
-
-[[package]]
-name = "wasi"
-version = "0.11.0+wasi-snapshot-preview1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
