@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
 
-printf 'ARGC = %d\n' "$#"
-printf 'ARGV[0] = %q\n' "$0"
+JSON=$(
+    jq \
+        -n \
+        --argjson ARGC "$#" \
+        --arg ARGV_0 "$0" \
+        '{ ARGC: $ARGC }'
+)
 
-for ((i = 1; i <= $#; i++)); do
-    printf 'ARGV[%d] = %s\n' "$i" "${!i}"
+for ((i = 0; i <= $#; i++)); do
+    JSON=$(jq \
+        --arg ARG "${!i}" \
+        '.ARGV += [ $ARG ]' \
+        <<< "$JSON"
+    )
 done
+
+jq <<< "$JSON"

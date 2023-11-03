@@ -1,3 +1,6 @@
+local cjson = require "cjson"
+cjson.encode_escape_forward_slash(false)
+
 local fname = os.getenv("RUSTY_CLI_TEST_OUTPUT") or "/dev/stdout"
 local fh = assert(io.open(fname, "w+"))
 
@@ -30,32 +33,21 @@ local function printf(...)
   return fh:write(string.format(...))
 end
 
+local json = {
+  cwd = exec("readlink " .. PROC_SELF .. "/cwd"),
+  exe = exec("readlink " .. PROC_SELF .. "/exe"),
+  cmd = {},
+  arg = {},
+}
 
-printf("CWD = %q\n", exec("readlink " .. PROC_SELF .. "/cwd"))
-printf("EXE = %q\n", exec("readlink " .. PROC_SELF .. "/exe"))
-
-do
-  printf("CMD = {\n")
-  for i, elem in ipairs(get_cmd()) do
-    printf("  [%s] = %q\n", i, elem)
-  end
-  printf("}\n")
+for i, elem in ipairs(get_cmd()) do
+  json.cmd[i] = elem
 end
 
-do
-  local keys = {}
-
-  for k in pairs(arg) do
-    table.insert(keys, k)
-  end
-
-  table.sort(keys)
-
-  printf("ARG = {\n")
-  for _, k in ipairs(keys) do
-    printf("  [%s] = %q\n", k, arg[k])
-  end
-  printf("}\n")
+for k, v in pairs(arg) do
+  json.arg[k] = v
 end
+
+fh:write(cjson.encode(json))
 
 fh:close()
