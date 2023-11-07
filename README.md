@@ -1,4 +1,5 @@
 # rusty-cli
+
 [![test](https://github.com/flrgh/rusty-cli/actions/workflows/test.yml/badge.svg)](https://github.com/flrgh/rusty-cli/actions/workflows/test.yml)
 [![resty-cli compat](https://github.com/flrgh/rusty-cli/actions/workflows/test-compat.yml/badge.svg)](https://github.com/flrgh/rusty-cli/actions/workflows/test-compat.yml)
 
@@ -16,15 +17,13 @@ to worry about when packaging OpenResty or other software that bundles it.
 
 ## Status
 
-`rusty-cli` is working well enough for development usage. There have been
-several times in the last few months where I symlinked it in place of `resty`
-in order to test out a real world use case and simply forgot it was there,
-leaving it in place for weeks at a time (I work on OpenResty-related stuff
-pretty much every day).
+`rusty-cli` passes all of `resty-cli`'s
+[tests](https://github.com/openresty/resty-cli/tree/3022948ef3d670b915bcf7027bcdd917591b96e4/t)
+in CI, and I've added some [additional tests](https://github.com/flrgh/rusty-cli/blob/fdbcda180830534dcc2a32c4f6901a927e6bf8f0/.github/workflows/test-compat.yml#L169-L176)
+of my own to validate behavioral parity.
 
-It is also passing all of `resty-cli`'s tests. However, the OpenResty tests
-are far from exhaustive, so I am not ready to call this production-ready until
-I add some more integration tests myself.
+I have been using `rusty-cli` in place of `resty-cli` for almost a year now and
+have yet to encounter any problems with it in my day-to-day.
 
 ## Features
 
