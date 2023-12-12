@@ -6,6 +6,7 @@ use std::io;
 use std::net;
 use std::path::PathBuf;
 use std::string::ToString;
+use thiserror::Error as ThisError;
 
 const MKDTEMP_TEMPLATE: &str = "/tmp/resty_XXXXXX";
 
@@ -308,5 +309,66 @@ impl Buf {
     pub fn dedent(&mut self) {
         assert!(self.indent > 0);
         self.indent -= 1
+    }
+}
+
+#[derive(ThisError, Debug)]
+pub enum ArgError {
+    #[error("ERROR: could not find {0} include file '{1}'")]
+    MissingInclude(String, String),
+
+    #[error("ERROR: options {0} and {1} cannot be specified at the same time.")]
+    Conflict(String, String),
+
+    #[error("ERROR: Invalid {arg} option value: {value}\n  ({err})")]
+    InvalidValue {
+        arg: String,
+        value: String,
+        err: String,
+    },
+
+    #[error("unknown argument: `{0}`")]
+    UnknownArgument(String),
+
+    #[error("option {0} takes an argument but found none.")]
+    MissingValue(String),
+
+    #[error("Neither Lua input file nor -e \"\" option specified.")]
+    NoLuaInput,
+
+    #[error("duplicate {0} options")]
+    Duplicate(String),
+
+    #[error("Lua input file {0} not found.")]
+    LuaFileNotFound(String),
+}
+
+impl ArgError {
+    pub fn exit_code(&self) -> i32 {
+        match self {
+            // I/O error
+            Self::MissingInclude(_, _) => 2,
+
+            // yup, resty-cli returns 25 (ENOTTY) for mutually-exclusive
+            // arguments
+            //
+            // not on purpose though, it's just a side effect of errno
+            // having been set from a previous and unrelated error
+            Self::Conflict(_, _) => 25,
+
+            Self::UnknownArgument(_) => 1,
+
+            Self::InvalidValue {
+                arg: _,
+                value: _,
+                err: _,
+            } => 255,
+            Self::MissingValue(_) => 255,
+
+            Self::NoLuaInput => 2,
+            Self::LuaFileNotFound(_) => 2,
+
+            Self::Duplicate(_) => 255,
+        }
     }
 }
