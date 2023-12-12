@@ -1,4 +1,5 @@
 use crate::lua::*;
+use crate::nginx;
 use crate::nginx::*;
 use crate::run::run;
 use crate::types::*;
@@ -9,9 +10,8 @@ use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::fs::File;
-use std::process;
+use std::io::prelude::*;
 use std::process::Command;
-use thiserror::Error as ThisError;
 
 const VERSION: &str = "0.1.0";
 
@@ -158,223 +158,6 @@ fn main_conf(user: &mut UserArgs) -> Vec<String> {
     conf
 }
 
-pub struct NginxExec {
-    prefix: String,
-    runner: Runner,
-    bin: String,
-    label: Option<String>,
-}
-
-impl From<NginxExec> for Command {
-    fn from(ngx: NginxExec) -> Self {
-        let root = ngx.prefix;
-
-        // resty CLI always adds a trailing slash
-        let prefix = format!("{}/", root.trim_end_matches('/'));
-
-        let nginx = ngx.bin;
-
-        let mut nginx_args = vec![
-            String::from("-p"),
-            prefix,
-            String::from("-c"),
-            String::from("conf/nginx.conf"),
-        ];
-
-        if let Some(label) = ngx.label {
-            nginx_args.insert(0, String::from("-g"));
-            nginx_args.insert(1, label);
-        }
-
-        let bin: String;
-        let mut args: Vec<String> = vec![];
-
-        match ngx.runner {
-            Runner::Default => {
-                bin = nginx;
-                args.append(&mut nginx_args);
-            }
-            Runner::RR => {
-                bin = String::from("rr");
-                args.push(String::from("record"));
-                args.push(nginx);
-                args.append(&mut nginx_args);
-            }
-            Runner::Stap(opts) => {
-                bin = String::from("stap");
-                args = vec![];
-                if let Some(opts) = opts {
-                    args.append(&mut split_shell_args(&opts));
-                }
-                args.push("-c".to_owned());
-                nginx_args.insert(0, nginx);
-                args.push(join_shell_args(&nginx_args));
-            }
-            Runner::Valgrind(opts) => {
-                bin = "valgrind".to_owned();
-                args = vec![];
-                if let Some(opts) = opts {
-                    args.append(&mut split_shell_args(&opts));
-                }
-                args.push(nginx);
-                args.append(&mut nginx_args);
-            }
-            Runner::Gdb(opts) => {
-                bin = String::from("gdb");
-                if let Some(opts) = opts {
-                    args.append(&mut split_shell_args(&opts));
-                }
-                args.push("--args".to_owned());
-                args.push(nginx);
-                args.append(&mut nginx_args);
-            }
-            Runner::User(runner) => {
-                let mut user_args = split_shell_args(&runner);
-                bin = user_args.remove(0);
-                args.append(&mut user_args);
-                args.push(nginx);
-                args.append(&mut nginx_args);
-            }
-        };
-
-        let mut c = process::Command::new(bin);
-
-        c.args(args);
-        c
-    }
-}
-
-#[derive(Default, Debug)]
-pub(crate) enum Runner {
-    #[default]
-    Default,
-    RR,
-    Stap(Option<String>),
-    Valgrind(Option<String>),
-    Gdb(Option<String>),
-    User(String),
-}
-
-impl Runner {
-    fn arg_name(&self) -> String {
-        match self {
-            Self::RR => "--rr",
-            Self::Stap(_) => "--stap",
-            Self::Gdb(_) => "--gdb",
-            Self::Valgrind(_) => "--valgrind",
-            Self::User(_) => "--user-runner",
-            _ => unreachable!(),
-        }
-        .to_owned()
-    }
-
-    fn opt_name(&self) -> String {
-        self.arg_name() + "-opts"
-    }
-
-    fn same(&self, other: &Runner) -> bool {
-        std::mem::discriminant(self) == std::mem::discriminant(other)
-    }
-
-    fn takes_opts(&self) -> bool {
-        match self {
-            Self::Stap(_) => true,
-            Self::Gdb(_) => true,
-            Self::Valgrind(_) => true,
-            Self::User(_) => false,
-            Self::RR => false,
-            Self::Default => false,
-        }
-    }
-
-    fn has_opts(&self) -> bool {
-        match self {
-            Self::Stap(o) | Self::Gdb(o) | Self::Valgrind(o) => o.is_some(),
-            Self::User(_) => true,
-            Self::RR => false,
-            Self::Default => false,
-        }
-    }
-
-    fn update(&mut self, new: Runner) -> Result<(), ArgError> {
-        if let Runner::Default = self {
-            *self = new;
-            Ok(())
-        } else if self.same(&new) {
-            // e.g. we already saw --gdb and are now adding opts with --gdb-opts
-            if self.takes_opts() && !self.has_opts() && new.has_opts() {
-                *self = new;
-                Ok(())
-            } else {
-                Err(ArgError::Duplicate(new.opt_name()))
-            }
-        } else {
-            Err(ArgError::Conflict(self.arg_name(), new.arg_name()))
-        }
-    }
-}
-
-#[derive(ThisError, Debug)]
-pub enum ArgError {
-    #[error("ERROR: could not find {0} include file '{1}'")]
-    MissingInclude(String, String),
-
-    #[error("ERROR: options {0} and {1} cannot be specified at the same time.")]
-    Conflict(String, String),
-
-    #[error("ERROR: Invalid {arg} option value: {value}\n  ({err})")]
-    InvalidValue {
-        arg: String,
-        value: String,
-        err: String,
-    },
-
-    #[error("unknown argument: `{0}`")]
-    UnknownArgument(String),
-
-    #[error("option {0} takes an argument but found none.")]
-    MissingValue(String),
-
-    #[error("Neither Lua input file nor -e \"\" option specified.")]
-    NoLuaInput,
-
-    #[error("duplicate {0} options")]
-    Duplicate(String),
-
-    #[error("Lua input file {0} not found.")]
-    LuaFileNotFound(String),
-}
-
-impl ArgError {
-    pub fn exit_code(&self) -> i32 {
-        match self {
-            // I/O error
-            Self::MissingInclude(_, _) => 2,
-
-            // yup, resty-cli returns 25 (ENOTTY) for mutually-exclusive
-            // arguments
-            //
-            // not on purpose though, it's just a side effect of errno
-            // having been set from a previous and unrelated error
-            Self::Conflict(_, _) => 25,
-
-            Self::UnknownArgument(_) => 1,
-
-            Self::InvalidValue {
-                arg: _,
-                value: _,
-                err: _,
-            } => 255,
-            Self::MissingValue(_) => 255,
-
-            Self::NoLuaInput => 2,
-            Self::LuaFileNotFound(_) => 2,
-
-            Self::Duplicate(_) => 255,
-        }
-    }
-}
-
 pub trait CliOpt {
     fn get_arg(&self, optarg: &mut Option<String>) -> Result<String, ArgError>;
 
@@ -489,8 +272,10 @@ impl Action {
                     user.inline_lua.insert(0, jit.to_lua());
                 }
 
+                let resty_compat_version = get_resty_compat_version();
                 let mut label = None;
-                if get_resty_compat_version() >= 30 {
+
+                if resty_compat_version >= 30 {
                     let mut s = String::from("# ");
                     if !user.inline_lua.is_empty() {
                         s.push_str("-e '");
@@ -526,22 +311,35 @@ impl Action {
                     }
                 };
 
-                let vars = Vars {
-                    main_conf: main_conf(&mut user),
-                    stream_enabled: !user.no_stream,
-                    stream_conf: stream_conf(&mut user),
-                    http_conf: http_conf(&mut user),
-                    events_conf: vec![format!("worker_connections {};", user.worker_connections)],
-                    lua_loader,
+                let conf_path = prefix.conf.join("nginx.conf");
+                let mut file = match fs::File::create(conf_path) {
+                    Ok(file) => file,
+                    Err(e) => {
+                        eprintln!("failed opening nginx.conf for writing: {}", e);
+                        return 2;
+                    }
                 };
 
-                let conf_path = prefix.conf.join("nginx.conf");
-                if let Err(e) = fs::write(conf_path, render_config(vars)) {
+                let events_conf = vec![format!("worker_connections {};", user.worker_connections)];
+
+                let res = nginx::ConfBuilder::new()
+                    .main(main_conf(&mut user))
+                    .events(events_conf)
+                    .stream(stream_conf(&mut user), !user.no_stream)
+                    .http(http_conf(&mut user))
+                    .lua(lua_loader)
+                    .resty_compat_version(resty_compat_version)
+                    .render(&mut file)
+                    .and_then(|_| file.flush());
+
+                if let Err(e) = res {
                     eprintln!("failed writing nginx.conf file: {}", e);
                     return 2;
                 }
 
-                let ngx = NginxExec {
+                drop(file);
+
+                let ngx = nginx::Exec {
                     bin: find_nginx_bin(user.nginx_bin).to_str().unwrap().to_string(),
                     prefix: prefix.root.to_str().unwrap().to_string(),
                     runner: user.runner,

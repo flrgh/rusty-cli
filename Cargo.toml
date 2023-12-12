@@ -13,7 +13,6 @@ publish = true
 
 
 [dependencies]
-minijinja = "1.0.10"
 shlex = "1.2.0"
 strum = { version = "0.25", features = ["derive"] }
 strum_macros = "0.25"
