@@ -586,11 +586,11 @@ pub struct UserArgs {
     pub(crate) arg_0: String,
 }
 
-fn default_nameservers() -> Vec<IpAddr> {
+fn discover_system_nameservers() -> Vec<IpAddr> {
     let mut ns = try_parse_resolv_conf();
 
+    // fall back to google dns for compatibility with resty-cli
     if ns.is_empty() {
-        // fall back to google dns for compatibility with resty-cli
         ns.push("8.8.8.8".parse().unwrap());
         ns.push("8.8.4.4".parse().unwrap());
     }
@@ -793,7 +793,7 @@ pub fn init(args: Vec<String>) -> Result<Action, ArgError> {
     }
 
     if user.nameservers.is_empty() {
-        user.nameservers.extend(default_nameservers());
+        user.nameservers.extend(discover_system_nameservers());
     }
 
     Ok(Action::Main(Box::new(user)))
