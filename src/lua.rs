@@ -131,7 +131,7 @@ struct LuaGenerator<'a> {
 }
 
 impl<'a> LuaGenerator<'a> {
-    pub fn generate(mut self) -> Result<Vec<String>, std::io::Error> {
+    pub(crate) fn generate(mut self) -> Result<Vec<String>, std::io::Error> {
         self.buf.append("local gen");
         self.buf.append("do");
         self.buf.indent();

@@ -234,7 +234,7 @@ fn include_file(section: &str, fname: String) -> Result<String, ArgError> {
     Ok(path.to_str().expect("uh oh").to_string())
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Action {
     Help,
     Version(Option<String>),
@@ -340,8 +340,8 @@ impl Action {
                 drop(file);
 
                 let ngx = nginx::Exec {
-                    bin: find_nginx_bin(user.nginx_bin).to_str().unwrap().to_string(),
-                    prefix: prefix.root.to_str().unwrap().to_string(),
+                    bin: find_nginx_bin(user.nginx_bin),
+                    prefix: prefix.root.clone(),
                     runner: user.runner,
                     label,
                 };
@@ -352,7 +352,7 @@ impl Action {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct UserArgs {
     pub(crate) inline_lua: Vec<String>,
     pub(crate) lua_file: Option<String>,
@@ -396,203 +396,432 @@ fn discover_system_nameservers() -> Vec<IpAddr> {
     ns
 }
 
-pub fn init(args: Vec<String>) -> Result<Action, ArgError> {
-    let mut user = UserArgs {
-        arg_c: args.len(),
-        worker_connections: 64,
-        ..Default::default()
-    };
+impl Action {
+    pub fn try_from<T>(args: T) -> Result<Self, ArgError>
+    where
+        T: IntoIterator<Item = String>,
+    {
+        let mut args: VecDeque<String> = args.into_iter().collect();
 
-    let runner = &mut user.runner;
+        let mut user = UserArgs {
+            arg_c: args.len(),
+            worker_connections: 64,
+            ..Default::default()
+        };
 
-    let mut show_version = false;
+        let runner = &mut user.runner;
 
-    let mut args: VecDeque<String> = args.into();
-    user.arg_0 = args.pop_front().expect("empgy ARGV[0]");
+        let mut show_version = false;
 
-    while let Some(arg) = args.pop_front() {
-        let mut optarg: Option<String> = None;
-        let mut combined_opt_arg = false;
-        let mut arg = arg;
+        user.arg_0 = args.pop_front().ok_or(ArgError::EmptyArgv0)?;
 
-        if arg.is_opt() {
-            if let Some((a, o)) = arg.parse_opt_eq() {
-                arg = a;
-                optarg = Some(o);
-                combined_opt_arg = true;
-            } else {
-                optarg = args.pop_front();
-            }
-        }
+        while let Some(arg) = args.pop_front() {
+            let mut optarg: Option<String> = None;
+            let mut combined_opt_arg = false;
+            let mut arg = arg;
 
-        let mut end_of_args = false;
-
-        let optarg = &mut optarg;
-
-        match arg.as_str() {
-            "-v" | "-V" | "--version" => {
-                show_version = true;
-                if user.nginx_bin.is_some() {
-                    return Ok(Action::Version(user.nginx_bin));
-                }
-            }
-
-            "-h" | "--help" => {
-                return Ok(Action::Help);
-            }
-
-            "--gdb" => runner.update(Runner::Gdb(None))?,
-
-            "--gdb-opts" => {
-                let opts = arg.get_arg(optarg)?;
-                runner.update(Runner::Gdb(Some(opts)))?;
-            }
-
-            "--rr" => runner.update(Runner::RR)?,
-
-            "--stap" => runner.update(Runner::Stap(None))?,
-
-            "--stap-opts" => {
-                let opts = arg.get_arg(optarg)?;
-                runner.update(Runner::Stap(Some(opts)))?;
-            }
-
-            "--user-runner" => {
-                let opts = arg.get_arg(optarg)?;
-                runner.update(Runner::User(opts))?;
-            }
-
-            "--valgrind" => runner.update(Runner::Valgrind(None))?,
-
-            "--valgrind-opts" => {
-                let opts = arg.get_arg(optarg)?;
-                runner.update(Runner::Valgrind(Some(opts)))?;
-            }
-
-            "-c" => {
-                user.worker_connections = arg.parse_to(optarg)?;
-            }
-
-            "--http-conf" => {
-                arg.push_to(&mut user.http_conf, optarg)?;
-            }
-
-            "--http-include" => {
-                let value = arg.get_arg(optarg)?;
-                user.http_include.push(include_file("http", value)?);
-            }
-
-            "--main-conf" => {
-                arg.push_to(&mut user.main_conf, optarg)?;
-            }
-
-            "--main-include" => {
-                let value = arg.get_arg(optarg)?;
-                user.main_include.push(include_file("main", value)?);
-            }
-
-            "--errlog-level" => {
-                user.errlog_level = arg.parse_to(optarg)?;
-            }
-
-            "--nginx" => {
-                let value = arg.get_arg(optarg)?;
-                user.nginx_bin = Some(value);
-
-                if show_version {
-                    return Ok(Action::Version(user.nginx_bin));
-                }
-            }
-
-            "--no-stream" => {
-                user.no_stream = true;
-            }
-
-            "--stream-conf" => {
-                arg.push_to(&mut user.stream_conf, optarg)?;
-            }
-
-            "--ns" => {
-                arg.push_to(&mut user.nameservers, optarg)?;
-            }
-
-            "--resolve-ipv6" => {
-                user.resolve_ipv6 = true;
-            }
-
-            "--shdict" => {
-                arg.push_to(&mut user.user_shdicts, optarg)?;
-            }
-
-            "-I" => {
-                arg.push_to(&mut user.lua_package_path, optarg)?;
-            }
-
-            "-j" => {
-                user.jit_cmd = Some(arg.parse_to(optarg)?);
-            }
-
-            "-l" => {
-                let value = arg.get_arg(optarg)?;
-                user.inline_lua
-                    .push(format!("require({})", value.lua_quote()));
-            }
-
-            "-e" => {
-                arg.push_to(&mut user.inline_lua, optarg)?;
-            }
-
-            "--" => {
-                user.lua_file = optarg.take();
-                end_of_args = true;
-            }
-
-            _ => {
-                if arg.is_opt() {
-                    return Err(ArgError::UnknownArgument(arg));
+            if arg.is_opt() {
+                if let Some((a, o)) = arg.parse_opt_eq() {
+                    arg = a;
+                    optarg = Some(o);
+                    combined_opt_arg = true;
                 } else {
-                    end_of_args = true;
-                    user.lua_file = Some(arg.clone());
+                    optarg = args.pop_front();
                 }
             }
-        }
 
-        if let Some(value) = optarg.take() {
-            if combined_opt_arg {
-                return Err(ArgError::InvalidValue {
-                    arg,
-                    value,
-                    err: "arg does not take a value".to_string(),
-                });
-            } else {
-                args.push_front(value);
+            let mut end_of_args = false;
+
+            let optarg = &mut optarg;
+
+            match arg.as_str() {
+                "-v" | "-V" | "--version" => {
+                    show_version = true;
+                    if user.nginx_bin.is_some() {
+                        return Ok(Action::Version(user.nginx_bin));
+                    }
+                }
+
+                "-h" | "--help" => {
+                    return Ok(Action::Help);
+                }
+
+                "--gdb" => runner.update(Runner::Gdb(None))?,
+
+                "--gdb-opts" => {
+                    let opts = arg.get_arg(optarg)?;
+                    runner.update(Runner::Gdb(Some(opts)))?;
+                }
+
+                "--rr" => runner.update(Runner::RR)?,
+
+                "--stap" => runner.update(Runner::Stap(None))?,
+
+                "--stap-opts" => {
+                    let opts = arg.get_arg(optarg)?;
+                    runner.update(Runner::Stap(Some(opts)))?;
+                }
+
+                "--user-runner" => {
+                    let opts = arg.get_arg(optarg)?;
+                    runner.update(Runner::User(opts))?;
+                }
+
+                "--valgrind" => runner.update(Runner::Valgrind(None))?,
+
+                "--valgrind-opts" => {
+                    let opts = arg.get_arg(optarg)?;
+                    runner.update(Runner::Valgrind(Some(opts)))?;
+                }
+
+                "-c" => {
+                    user.worker_connections = arg.parse_to(optarg)?;
+                }
+
+                "--http-conf" => {
+                    arg.push_to(&mut user.http_conf, optarg)?;
+                }
+
+                "--http-include" => {
+                    let value = arg.get_arg(optarg)?;
+                    user.http_include.push(include_file("http", value)?);
+                }
+
+                "--main-conf" => {
+                    arg.push_to(&mut user.main_conf, optarg)?;
+                }
+
+                "--main-include" => {
+                    let value = arg.get_arg(optarg)?;
+                    user.main_include.push(include_file("main", value)?);
+                }
+
+                "--errlog-level" => {
+                    user.errlog_level = arg.parse_to(optarg)?;
+                }
+
+                "--nginx" => {
+                    let value = arg.get_arg(optarg)?;
+                    user.nginx_bin = Some(value);
+
+                    if show_version {
+                        return Ok(Action::Version(user.nginx_bin));
+                    }
+                }
+
+                "--no-stream" => {
+                    user.no_stream = true;
+                }
+
+                "--stream-conf" => {
+                    arg.push_to(&mut user.stream_conf, optarg)?;
+                }
+
+                "--ns" => {
+                    arg.push_to(&mut user.nameservers, optarg)?;
+                }
+
+                "--resolve-ipv6" => {
+                    user.resolve_ipv6 = true;
+                }
+
+                "--shdict" => {
+                    arg.push_to(&mut user.user_shdicts, optarg)?;
+                }
+
+                "-I" => {
+                    arg.push_to(&mut user.lua_package_path, optarg)?;
+                }
+
+                "-j" => {
+                    user.jit_cmd = Some(arg.parse_to(optarg)?);
+                }
+
+                "-l" => {
+                    let value = arg.get_arg(optarg)?;
+                    user.inline_lua
+                        .push(format!("require({})", value.lua_quote()));
+                }
+
+                "-e" => {
+                    arg.push_to(&mut user.inline_lua, optarg)?;
+                }
+
+                "--" => {
+                    user.lua_file = optarg.take();
+                    end_of_args = true;
+                }
+
+                _ => {
+                    if arg.is_opt() {
+                        return Err(ArgError::UnknownArgument(arg));
+                    } else {
+                        end_of_args = true;
+                        user.lua_file = Some(arg.clone());
+                    }
+                }
+            }
+
+            if let Some(value) = optarg.take() {
+                if combined_opt_arg {
+                    return Err(ArgError::InvalidValue {
+                        arg,
+                        value,
+                        err: "arg does not take a value".to_string(),
+                    });
+                } else {
+                    args.push_front(value);
+                }
+            }
+
+            if end_of_args {
+                break;
             }
         }
 
-        if end_of_args {
-            break;
+        user.lua_args.extend(args);
+
+        if show_version {
+            return Ok(Action::Version(user.nginx_bin));
+        }
+
+        if user.inline_lua.is_empty() && user.lua_file.is_none() && user.jit_cmd.is_none() {
+            return Err(ArgError::NoLuaInput);
+        }
+
+        if let Some(fname) = &user.lua_file {
+            if File::open(fname).is_err() {
+                return Err(ArgError::LuaFileNotFound(fname.to_string()));
+            }
+        }
+
+        if user.nameservers.is_empty() {
+            user.nameservers.extend(discover_system_nameservers());
+        }
+
+        Ok(Action::Main(Box::new(user)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! action {
+        ( $( $x:expr ),* ) => {
+            {
+                let v = vec![$($x.to_string(),)*];
+                Action::try_from(v)
+            }
+        };
+    }
+
+    macro_rules! svec {
+        ( $( $x:expr ),* ) => {
+            {
+                let v: Vec<String> = vec![$($x.to_string(),)*];
+                v
+            }
+        };
+    }
+
+    #[test]
+    fn empty_args() {
+        assert!(matches!(action!(), Err(ArgError::EmptyArgv0)));
+    }
+
+    #[test]
+    fn no_lua() {
+        assert_eq!(Err(ArgError::NoLuaInput), action!("bin"));
+    }
+
+    #[test]
+    fn version_action() {
+        let exp = Ok(Action::Version(None));
+
+        assert_eq!(exp, action!("bin", "--version"));
+        assert_eq!(exp, action!("bin", "-V"));
+        assert_eq!(exp, action!("bin", "-v"));
+    }
+
+    #[test]
+    fn version_action_with_additional_args() {
+        let exp = Ok(Action::Version(None));
+        assert_eq!(exp, action!("bin", "-v", "--no-stream"));
+        assert_eq!(
+            exp,
+            action!("bin", "-v", "--no-stream", "-e", "ngx.sleep(1)")
+        );
+    }
+
+    #[test]
+    fn version_action_with_nginx_bin() {
+        let exp = Ok(Action::Version(Some("my-nginx".to_string())));
+
+        assert_eq!(exp, action!("bin", "--version", "--nginx", "my-nginx"));
+        assert_eq!(exp, action!("bin", "-V", "--nginx", "my-nginx"));
+        assert_eq!(exp, action!("bin", "-v", "--nginx", "my-nginx"));
+
+        assert_eq!(exp, action!("bin", "--version", "--nginx=my-nginx"));
+        assert_eq!(exp, action!("bin", "-V", "--nginx=my-nginx"));
+        assert_eq!(exp, action!("bin", "-v", "--nginx=my-nginx"));
+
+        assert_eq!(exp, action!("bin", "--nginx", "my-nginx", "--version"));
+        assert_eq!(exp, action!("bin", "--nginx", "my-nginx", "-V"));
+        assert_eq!(exp, action!("bin", "--nginx", "my-nginx", "-v"));
+
+        assert_eq!(exp, action!("bin", "--nginx=my-nginx", "--version"));
+        assert_eq!(exp, action!("bin", "--nginx=my-nginx", "-V"));
+        assert_eq!(exp, action!("bin", "--nginx=my-nginx", "-v"));
+    }
+
+    #[test]
+    fn help_action() {
+        let exp = Ok(Action::Help);
+        assert_eq!(exp, action!("bin", "-h"));
+        assert_eq!(exp, action!("bin", "--help"));
+    }
+
+    #[test]
+    fn help_action_extra_args() {
+        let exp = Ok(Action::Help);
+        assert_eq!(exp, action!("bin", "-h", "--no-stream"));
+        assert_eq!(exp, action!("bin", "--help", "--no-stream"));
+        assert_eq!(exp, action!("bin", "--no-stream", "-h"));
+        assert_eq!(exp, action!("bin", "--no-stream", "--help"));
+    }
+
+    #[test]
+    fn jit_command_only() {
+        // resty-cli doesn't actually complain if you pass in a luajit command
+        // with no -e or lua file
+        assert!(matches!(action!("bin", "-j", "v"), Ok(Action::Main(_))));
+    }
+
+    #[test]
+    fn opts_that_require_an_arg() {
+        let opts = vec![
+            "--stap-opts",
+            "--gdb-opts",
+            "--user-runner",
+            "--valgrind-opts",
+            "-c",
+            "--http-conf",
+            "--http-include",
+            "--main-conf",
+            "--main-include",
+            "--errlog-level",
+            "--nginx",
+            "--stream-conf",
+            "--ns",
+            "--shdict",
+            "-I",
+            "-j",
+            "-l",
+            "-e",
+        ];
+
+        for opt in opts {
+            assert!(matches!(
+                action!("bin", "-e", "test", opt),
+                Err(ArgError::MissingValue(_))
+            ));
         }
     }
 
-    user.lua_args.extend(args);
+    #[test]
+    fn opts_that_dont_take_an_arg() {
+        let opts = vec![
+            "--no-stream",
+            "--gdb",
+            "--rr",
+            "--stap",
+            "--valgrind",
+            "--resolve-ipv6",
+        ];
 
-    if show_version {
-        return Ok(Action::Version(user.nginx_bin));
-    }
+        for opt in opts {
+            let with_eq = format!("{}=123", opt);
 
-    if user.inline_lua.is_empty() && user.lua_file.is_none() && user.jit_cmd.is_none() {
-        return Err(ArgError::NoLuaInput);
-    }
-
-    if let Some(fname) = &user.lua_file {
-        if File::open(fname).is_err() {
-            return Err(ArgError::LuaFileNotFound(fname.to_string()));
+            assert_eq!(
+                Err(ArgError::InvalidValue {
+                    arg: opt.to_string(),
+                    value: "123".to_string(),
+                    err: "arg does not take a value".to_string()
+                }),
+                action!("bin", with_eq)
+            );
         }
     }
 
-    if user.nameservers.is_empty() {
-        user.nameservers.extend(discover_system_nameservers());
-    }
+    #[test]
+    fn happy_paths() {
+        #[rustfmt::skip]
+        let act = action!(
+            "bin",
+            "--no-stream",
+            "--main-conf", "main-1",
+            "-c",          "20",
+            "--ns",        "1.2.3.4",
+            "--http-conf", "http-1",
+            "-l",          "my-require",
+            "--ns",        "5.6.7.8",
 
-    Ok(Action::Main(Box::new(user)))
+            "--shdict=my_shdict 1m",
+
+            "-I",          "/my-include-dir",
+            "-e",          "expr 1",
+
+            "-l=my-other-require",
+
+            "--http-conf", "http-2",
+            "-j",          "off",
+            "--nginx",     "my-nginx",
+            "-e",          "expr 2",
+            "--main-conf", "main-2",
+
+            "-e=expr 3"
+        );
+
+        assert!(matches!(act, Ok(Action::Main(_))));
+
+        let Action::Main(args) = act.unwrap() else {
+            panic!("oops")
+        };
+
+        assert_eq!(20, args.worker_connections);
+        assert!(args.no_stream);
+
+        assert_eq!(
+            svec!["1.2.3.4", "5.6.7.8"],
+            args.nameservers
+                .iter()
+                .map(String::from)
+                .collect::<Vec<String>>()
+        );
+
+        assert_eq!(svec!["http-1", "http-2"], args.http_conf);
+        assert_eq!(svec!["main-1", "main-2"], args.main_conf);
+
+        assert!(matches!(args.jit_cmd, Some(JitCmd::Off)));
+
+        assert_eq!(Some("my-nginx".to_string()), args.nginx_bin);
+
+        assert_eq!(
+            svec![
+                "require([=[my-require]=])",
+                "expr 1",
+                "require([=[my-other-require]=])",
+                "expr 2",
+                "expr 3"
+            ],
+            args.inline_lua
+        );
+
+        assert_eq!(None, args.lua_file);
+
+        assert!(matches!(args.runner, Runner::Default));
+
+        dbg!(&args);
+    }
 }
