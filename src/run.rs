@@ -46,7 +46,9 @@ fn block_wait(mut proc: Child) -> i32 {
 }
 
 pub(crate) fn run(mut cmd: Command) -> i32 {
-    let proc = match cmd.spawn() {
+    let mask = SigSet::from_iter(SIGNALS);
+
+    let mut proc = match cmd.spawn() {
         Ok(child) => child,
         Err(e) => {
             let prog = cmd.get_program().to_string_lossy();
@@ -55,20 +57,29 @@ pub(crate) fn run(mut cmd: Command) -> i32 {
         }
     };
 
-    let caught = {
-        let mask = SigSet::from_iter(SIGNALS);
-        let old_mask = mask
-            .thread_swap_mask(SIG_BLOCK)
-            .expect("failed to block signals");
+    let old_mask = mask
+        .thread_swap_mask(SIG_BLOCK)
+        .expect("failed to block signals");
+
+    let caught = loop {
+        // we need to check if the child process has exited some time between
+        // when we set up our signal mask and now
+        if let Ok(Some(_)) = proc.try_wait() {
+            break SIGCHLD;
+        }
 
         let signal = mask.wait().expect("failed to wait for signal");
 
-        old_mask
-            .thread_set_mask()
-            .expect("failed to restore thread signal mask");
-
-        signal
+        if signal == SIGWINCH {
+            send_signal(&proc, SIGWINCH);
+        } else {
+            break signal;
+        }
     };
+
+    old_mask
+        .thread_set_mask()
+        .expect("failed to restore thread signal mask");
 
     match caught {
         SIGCHLD => block_wait(proc),
