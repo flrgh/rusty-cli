@@ -12,7 +12,7 @@ const BLOCK_OPEN: &str = "{";
 const BLOCK_CLOSE: &str = "}";
 
 #[derive(Debug, Default)]
-pub struct ConfBuilder {
+pub(crate) struct ConfBuilder {
     events: Option<Vec<String>>,
     main: Option<Vec<String>>,
     stream_enabled: bool,
@@ -23,11 +23,11 @@ pub struct ConfBuilder {
 }
 
 impl ConfBuilder {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Default::default()
     }
 
-    pub fn events<T>(mut self, t: T) -> Self
+    pub(crate) fn events<T>(mut self, t: T) -> Self
     where
         T: IntoIterator<Item = String>,
     {
@@ -35,7 +35,7 @@ impl ConfBuilder {
         self
     }
 
-    pub fn main<T>(mut self, t: T) -> Self
+    pub(crate) fn main<T>(mut self, t: T) -> Self
     where
         T: IntoIterator<Item = String>,
     {
@@ -43,7 +43,7 @@ impl ConfBuilder {
         self
     }
 
-    pub fn http<T>(mut self, t: T) -> Self
+    pub(crate) fn http<T>(mut self, t: T) -> Self
     where
         T: IntoIterator<Item = String>,
     {
@@ -51,7 +51,7 @@ impl ConfBuilder {
         self
     }
 
-    pub fn stream<T>(mut self, t: T, enabled: bool) -> Self
+    pub(crate) fn stream<T>(mut self, t: T, enabled: bool) -> Self
     where
         T: IntoIterator<Item = String>,
     {
@@ -60,7 +60,7 @@ impl ConfBuilder {
         self
     }
 
-    pub fn lua<T>(mut self, t: T) -> Self
+    pub(crate) fn lua<T>(mut self, t: T) -> Self
     where
         T: IntoIterator<Item = String>,
     {
@@ -68,12 +68,12 @@ impl ConfBuilder {
         self
     }
 
-    pub fn resty_compat_version(mut self, v: u64) -> Self {
+    pub(crate) fn resty_compat_version(mut self, v: u64) -> Self {
         self.resty_compat_version = Some(v);
         self
     }
 
-    pub fn render<T>(self, buf: &mut T) -> io::Result<()>
+    pub(crate) fn render<T>(self, buf: &mut T) -> io::Result<()>
     where
         T: io::Write,
     {
@@ -108,13 +108,13 @@ impl From<ConfBuilder> for Conf {
 }
 
 struct Conf {
-    pub events: Vec<String>,
-    pub main: Vec<String>,
-    pub stream_enabled: bool,
-    pub stream: Vec<String>,
-    pub http: Vec<String>,
-    pub lua: Vec<String>,
-    pub resty_compat_version: u64,
+    events: Vec<String>,
+    main: Vec<String>,
+    stream_enabled: bool,
+    stream: Vec<String>,
+    http: Vec<String>,
+    lua: Vec<String>,
+    resty_compat_version: u64,
 }
 
 impl Conf {
@@ -375,16 +375,33 @@ impl Conf {
     }
 }
 
-pub fn find_nginx_bin(nginx: Option<String>) -> PathBuf {
+fn get_exe() -> Option<PathBuf> {
+    if let Ok(exe) = env::current_exe() {
+        return Some(exe);
+    }
+
+    if let Some(arg_0) = env::args().next() {
+        return Some(PathBuf::from(arg_0));
+    }
+
+    None
+}
+
+fn get_parent(path: PathBuf) -> Option<PathBuf> {
+    let mut path = path;
+    if path.pop() {
+        Some(path)
+    } else {
+        None
+    }
+}
+
+pub(crate) fn find_nginx_bin(nginx: Option<String>) -> PathBuf {
     if let Some(path) = nginx {
         return PathBuf::from(path);
     }
 
-    let bin = env::current_exe().unwrap();
-    let parent = match bin.parent() {
-        Some(p) => p.to_path_buf(),
-        None => PathBuf::from("/"),
-    };
+    let parent = get_exe().and_then(get_parent).unwrap_or(PathBuf::from("/"));
 
     let nginx = parent.join("nginx/sbin/nginx");
     if nginx.is_file() {
@@ -399,10 +416,10 @@ pub fn find_nginx_bin(nginx: Option<String>) -> PathBuf {
     PathBuf::from("nginx")
 }
 
-pub fn get_resty_compat_version() -> u64 {
+pub(crate) fn get_resty_compat_version() -> u64 {
     // TODO: maybe make this a build config item?
     if let Some(value) = env::var_os(RESTY_COMPAT_VAR) {
-        let value = value.to_str().unwrap();
+        let value = &value.to_string_lossy().to_string();
 
         let value = value.strip_prefix('v').unwrap_or(value);
 
@@ -416,11 +433,11 @@ pub fn get_resty_compat_version() -> u64 {
     }
 }
 
-pub struct Exec {
-    pub prefix: String,
-    pub runner: Runner,
-    pub bin: String,
-    pub label: Option<String>,
+pub(crate) struct Exec {
+    pub(crate) prefix: PathBuf,
+    pub(crate) runner: Runner,
+    pub(crate) bin: PathBuf,
+    pub(crate) label: Option<String>,
 }
 
 impl From<Exec> for Command {
@@ -431,6 +448,14 @@ impl From<Exec> for Command {
             bin,
             label,
         } = exec;
+
+        let prefix = prefix
+            .to_str()
+            .expect("nginx prefix directory should be a valid string");
+
+        let bin = bin
+            .to_str()
+            .expect("nginx binary path should be a valid string");
 
         // resty CLI always adds a trailing slash
         let prefix = format!("{}/", prefix.trim_end_matches('/'));
@@ -447,7 +472,7 @@ impl From<Exec> for Command {
         nginx_args.push(String::from("-c"));
         nginx_args.push(String::from("conf/nginx.conf"));
 
-        let nginx_bin = bin;
+        let nginx_bin = bin.to_string();
         let bin: String;
         let mut args: Vec<String> = vec![];
 
@@ -506,8 +531,8 @@ impl From<Exec> for Command {
     }
 }
 
-#[derive(Default, Debug)]
-pub enum Runner {
+#[derive(Default, Debug, PartialEq, Eq)]
+pub(crate) enum Runner {
     #[default]
     Default,
     RR,
@@ -558,7 +583,7 @@ impl Runner {
         }
     }
 
-    pub fn update(&mut self, new: Runner) -> Result<(), ArgError> {
+    pub(crate) fn update(&mut self, new: Runner) -> Result<(), ArgError> {
         if let Runner::Default = self {
             *self = new;
             Ok(())

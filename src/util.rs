@@ -1,6 +1,33 @@
 use crate::types::IpAddr;
+use libc::{c_char, mkdtemp};
+use std::ffi::{CStr, CString};
 use std::fs;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{self, BufRead, BufReader, ErrorKind, Read};
+use std::path::PathBuf;
+
+fn impl_tempdir(tpl: &str) -> io::Result<PathBuf> {
+    use io::Error;
+
+    let tpl = CString::new(tpl).map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
+
+    unsafe {
+        let ptr: *const c_char = mkdtemp(tpl.as_ptr() as *mut c_char);
+
+        if ptr.is_null() {
+            return Err(std::io::Error::last_os_error());
+        }
+
+        CStr::from_ptr(ptr)
+    }
+    .to_str()
+    .map_err(|e| Error::new(ErrorKind::Other, e))
+    .map(PathBuf::from)
+}
+
+pub(crate) fn tempdir() -> io::Result<PathBuf> {
+    const MKDTEMP_TEMPLATE: &str = "/tmp/resty_XXXXXX";
+    impl_tempdir(MKDTEMP_TEMPLATE)
+}
 
 fn impl_try_parse_resolv_conf<T: Read>(buf: T) -> Vec<IpAddr> {
     BufReader::new(buf)
@@ -160,12 +187,13 @@ mod tests {
 
     #[test]
     fn test_impl_try_parse_resolv_conf() {
-        fn addr<T: AsRef<str>>(s: T) -> IpAddr {
-            s.as_ref().parse().unwrap()
-        }
-
-        fn addrs<T: AsRef<str>>(s: Vec<T>) -> Vec<IpAddr> {
-            s.iter().map(addr).collect()
+        macro_rules! addrs {
+            ( $( $x:expr ),* ) => {
+                {
+                    let v = vec![$($x.parse::<IpAddr>().unwrap(),)*];
+                    v
+                }
+            };
         }
 
         let input = r##"# This is /run/systemd/resolve/stub-resolv.conf managed by man:systemd-resolved(8).
@@ -193,14 +221,14 @@ options edns0 trust-ad
 search example.com"##;
 
         assert_eq!(
-            vec![addr("127.0.0.53")],
+            addrs!["127.0.0.53"],
             impl_try_parse_resolv_conf(input.as_bytes())
         );
 
         let input = "nameserver 127.0.0.53";
 
         assert_eq!(
-            vec![addr("127.0.0.53")],
+            addrs!["127.0.0.53"],
             impl_try_parse_resolv_conf(input.as_bytes())
         );
 
@@ -211,7 +239,7 @@ nameserver 127.0.0.3 oops extra stuff
 "##;
 
         assert_eq!(
-            vec![addr("127.0.0.2")],
+            addrs!["127.0.0.2"],
             impl_try_parse_resolv_conf(input.as_bytes())
         );
 
@@ -222,7 +250,7 @@ nameserver 127.0.0.3
 "##;
 
         assert_eq!(
-            addrs(vec!["127.0.0.1", "127.0.0.2", "127.0.0.3",]),
+            addrs!["127.0.0.1", "127.0.0.2", "127.0.0.3"],
             impl_try_parse_resolv_conf(input.as_bytes())
         );
 
@@ -242,7 +270,7 @@ nameserver 127.0.0.12
 "##;
 
         assert_eq!(
-            addrs(vec![
+            addrs![
                 "127.0.0.1",
                 "127.0.0.2",
                 "127.0.0.3",
@@ -253,9 +281,47 @@ nameserver 127.0.0.12
                 "127.0.0.8",
                 "127.0.0.9",
                 "127.0.0.10",
-                "127.0.0.11",
-            ]),
+                "127.0.0.11"
+            ],
             impl_try_parse_resolv_conf(input.as_bytes())
         );
+    }
+
+    #[test]
+    fn temp_dir_invalid_template() {
+        let res = impl_tempdir("/tmp/weeee");
+        assert!(res.is_err());
+
+        let e = res.unwrap_err();
+        assert!(matches!(e.kind(), ErrorKind::InvalidInput));
+    }
+
+    #[test]
+    fn temp_dir_invalid_template_string() {
+        let res = impl_tempdir("/tmp/null_\0_foo_XXXXXX");
+        assert!(res.is_err());
+
+        let e = res.unwrap_err();
+        assert!(matches!(e.kind(), ErrorKind::InvalidInput));
+    }
+
+    #[test]
+    fn temp_dir_io_error() {
+        let res = impl_tempdir("/a/b/i-dont-exist/c/d/e/f/g/foo_XXXXXX");
+        assert!(res.is_err());
+
+        let e = res.unwrap_err();
+        assert!(matches!(e.kind(), ErrorKind::NotFound));
+    }
+
+    #[test]
+    fn temp_dir_happy_path() {
+        let result = impl_tempdir("/tmp/cargo_test_XXXXXX");
+        assert!(result.is_ok());
+
+        let path = result.unwrap();
+        assert!(path.is_dir());
+
+        std::fs::remove_dir_all(path).expect("cleanup of temp dir");
     }
 }

@@ -45,12 +45,12 @@ fn block_wait(mut proc: Child) -> i32 {
     }
 }
 
-pub fn run(mut cmd: Command) -> i32 {
+pub(crate) fn run(mut cmd: Command) -> i32 {
     let proc = match cmd.spawn() {
         Ok(child) => child,
         Err(e) => {
-            let prog = cmd.get_program().to_str().unwrap();
-            eprintln!("ERROR: failed to run command {prog}: {e}");
+            let prog = cmd.get_program().to_string_lossy();
+            eprintln!("ERROR: failed to run command \"{prog}\": {e}");
             return 2;
         }
     };

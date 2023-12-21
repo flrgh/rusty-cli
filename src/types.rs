@@ -1,33 +1,10 @@
-use libc::{c_char, mkdtemp};
-use std::ffi;
+use crate::util::tempdir;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use std::fs;
-use std::io;
 use std::net;
 use std::path::PathBuf;
 use std::string::ToString;
 use thiserror::Error as ThisError;
-
-const MKDTEMP_TEMPLATE: &str = "/tmp/resty_XXXXXX";
-
-pub fn tempdir(tpl: Option<&str>) -> io::Result<String> {
-    let tpl = ffi::CString::new(tpl.unwrap_or(MKDTEMP_TEMPLATE)).unwrap();
-    unsafe {
-        let res = mkdtemp(tpl.as_ptr() as *mut c_char);
-
-        if res.is_null() {
-            return Err(std::io::Error::last_os_error());
-        }
-
-        Ok(ffi::CStr::from_ptr(res).to_str().unwrap().to_string())
-    }
-}
-
-#[test]
-fn pls_dont_die() {
-    assert!(tempdir(Some("/tmp/weeee")).is_err());
-    assert!(tempdir(None).is_ok());
-}
 
 fn trim_brackets(s: &str) -> &str {
     s.strip_prefix('[')
@@ -35,6 +12,8 @@ fn trim_brackets(s: &str) -> &str {
         .unwrap_or(s)
 }
 
+// Rust's IP Address type (std::net::IpAddr) cannot be parsed from a string
+// when the string is wrapped in [brackets], so we have our own type.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct IpAddr(String);
 
@@ -50,6 +29,12 @@ impl From<IpAddr> for String {
     }
 }
 
+impl From<&IpAddr> for String {
+    fn from(val: &IpAddr) -> Self {
+        val.0.to_owned()
+    }
+}
+
 impl std::str::FromStr for IpAddr {
     type Err = String;
 
@@ -59,21 +44,6 @@ impl std::str::FromStr for IpAddr {
             .map(|_| IpAddr(s.to_owned()))
             .map_err(|_| "expecting an IP address".to_string())
     }
-}
-
-#[test]
-fn test_ip_addr_from_str() {
-    assert_eq!(Ok(IpAddr("[::1]".to_string())), "[::1]".parse::<IpAddr>());
-
-    assert_eq!(
-        Ok(IpAddr("[2003:dead:beef:4dad:23:46:bb:101]".to_string())),
-        "[2003:dead:beef:4dad:23:46:bb:101]".parse::<IpAddr>()
-    );
-
-    assert_eq!(
-        Ok(IpAddr("127.0.0.1".to_string())),
-        "127.0.0.1".parse::<IpAddr>()
-    );
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -150,43 +120,7 @@ impl std::str::FromStr for Shdict {
     }
 }
 
-#[test]
-fn shdict_from_str() {
-    fn shdict(name: &str, size: &str) -> Shdict {
-        Shdict(format!("{} {}", name, size))
-    }
-
-    fn must_parse(input: &str, (name, size): (&str, &str)) {
-        assert_eq!(Ok(shdict(name, size)), input.parse::<Shdict>())
-    }
-
-    fn must_not_parse(s: &str) {
-        assert_eq!(Err(InvalidShdict::from(s)), s.parse::<Shdict>())
-    }
-
-    must_parse("foo_1 10k", ("foo_1", "10k"));
-    must_parse("foo_1 10K", ("foo_1", "10K"));
-    must_parse("foo_1 10m", ("foo_1", "10m"));
-    must_parse("foo_1 10M", ("foo_1", "10M"));
-    must_parse("cats_dogs   20000", ("cats_dogs", "20000"));
-
-    must_not_parse("");
-    must_not_parse("foo 10 extra");
-    must_not_parse("foo 10 extra extra");
-    must_not_parse("- 10");
-    must_not_parse("   foo 10");
-    must_not_parse("foo");
-    must_not_parse("foo f");
-    must_not_parse("foo 10.0");
-    must_not_parse("foo 10b");
-    must_not_parse("foo 10g");
-    must_not_parse("foo 10km");
-    must_not_parse("fo--o 10k");
-    must_not_parse("foo -10k");
-    must_not_parse("foo -10");
-}
-
-#[derive(Clone, Debug, Default, strum_macros::Display, strum_macros::EnumString)]
+#[derive(Clone, Debug, Default, strum_macros::Display, strum_macros::EnumString, PartialEq, Eq)]
 #[strum(serialize_all = "lowercase")]
 pub(crate) enum LogLevel {
     Debug,
@@ -200,7 +134,7 @@ pub(crate) enum LogLevel {
     Emerg,
 }
 
-#[derive(Clone, Debug, strum_macros::EnumString)]
+#[derive(Clone, Debug, strum_macros::EnumString, PartialEq, Eq)]
 #[strum(serialize_all = "lowercase")]
 pub(crate) enum JitCmd {
     /// Use LuaJIT's jit.v module to output brief info of the
@@ -251,9 +185,8 @@ impl Display for Prefix {
 
 impl Prefix {
     pub(crate) fn new() -> Result<Self, std::io::Error> {
-        let tmp = tempdir(None)?;
+        let root = tempdir()?;
 
-        let root = PathBuf::from(tmp);
         let conf = root.join("conf");
 
         fs::create_dir_all(&root)?;
@@ -279,15 +212,15 @@ pub(crate) struct Buf {
 }
 
 impl Buf {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
-    pub fn newline(&mut self) {
+    pub(crate) fn newline(&mut self) {
         self.lines.push(String::new());
     }
 
-    pub fn append(&mut self, s: &str) {
+    pub(crate) fn append(&mut self, s: &str) {
         let mut line = String::new();
 
         if self.indent > 0 {
@@ -298,22 +231,22 @@ impl Buf {
         self.lines.push(line);
     }
 
-    pub fn finalize(self) -> Vec<String> {
+    pub(crate) fn finalize(self) -> Vec<String> {
         self.lines
     }
 
-    pub fn indent(&mut self) {
+    pub(crate) fn indent(&mut self) {
         self.indent += 1
     }
 
-    pub fn dedent(&mut self) {
+    pub(crate) fn dedent(&mut self) {
         assert!(self.indent > 0);
         self.indent -= 1
     }
 }
 
-#[derive(ThisError, Debug)]
-pub enum ArgError {
+#[derive(ThisError, Debug, PartialEq, Eq)]
+pub(crate) enum ArgError {
     #[error("ERROR: could not find {0} include file '{1}'")]
     MissingInclude(String, String),
 
@@ -341,10 +274,13 @@ pub enum ArgError {
 
     #[error("Lua input file {0} not found.")]
     LuaFileNotFound(String),
+
+    #[error("ARGV[0] is empty")]
+    EmptyArgv0,
 }
 
 impl ArgError {
-    pub fn exit_code(&self) -> i32 {
+    pub(crate) fn exit_code(&self) -> i32 {
         match self {
             // I/O error
             Self::MissingInclude(_, _) => 2,
@@ -357,6 +293,7 @@ impl ArgError {
             Self::Conflict(_, _) => 25,
 
             Self::UnknownArgument(_) => 1,
+            Self::EmptyArgv0 => 1,
 
             Self::InvalidValue {
                 arg: _,
@@ -370,5 +307,61 @@ impl ArgError {
 
             Self::Duplicate(_) => 255,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ip_addr_from_str() {
+        assert_eq!(Ok(IpAddr("[::1]".to_string())), "[::1]".parse::<IpAddr>());
+
+        assert_eq!(
+            Ok(IpAddr("[2003:dead:beef:4dad:23:46:bb:101]".to_string())),
+            "[2003:dead:beef:4dad:23:46:bb:101]".parse::<IpAddr>()
+        );
+
+        assert_eq!(
+            Ok(IpAddr("127.0.0.1".to_string())),
+            "127.0.0.1".parse::<IpAddr>()
+        );
+    }
+
+    #[test]
+    fn shdict_from_str() {
+        fn shdict(name: &str, size: &str) -> Shdict {
+            Shdict(format!("{} {}", name, size))
+        }
+
+        fn must_parse(input: &str, (name, size): (&str, &str)) {
+            assert_eq!(Ok(shdict(name, size)), input.parse::<Shdict>())
+        }
+
+        fn must_not_parse(s: &str) {
+            assert_eq!(Err(InvalidShdict::from(s)), s.parse::<Shdict>())
+        }
+
+        must_parse("foo_1 10k", ("foo_1", "10k"));
+        must_parse("foo_1 10K", ("foo_1", "10K"));
+        must_parse("foo_1 10m", ("foo_1", "10m"));
+        must_parse("foo_1 10M", ("foo_1", "10M"));
+        must_parse("cats_dogs   20000", ("cats_dogs", "20000"));
+
+        must_not_parse("");
+        must_not_parse("foo 10 extra");
+        must_not_parse("foo 10 extra extra");
+        must_not_parse("- 10");
+        must_not_parse("   foo 10");
+        must_not_parse("foo");
+        must_not_parse("foo f");
+        must_not_parse("foo 10.0");
+        must_not_parse("foo 10b");
+        must_not_parse("foo 10g");
+        must_not_parse("foo 10km");
+        must_not_parse("fo--o 10k");
+        must_not_parse("foo -10k");
+        must_not_parse("foo -10");
     }
 }
