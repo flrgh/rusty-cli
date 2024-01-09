@@ -36,19 +36,7 @@ jobs:
               --with-stream_ssl_module
               --with-stream_ssl_preread_module
 
-          - openresty: 1.21.4.1
-            resty-cli: v0.28
-            openssl: 1.1.1n
-            openresty-opts: >
-              --with-compat
-              --with-pcre-jit
-              --with-stream
-              --with-threads
-              --with-http_ssl_module
-              --with-stream_ssl_module
-              --with-stream_ssl_preread_module
-
-          - openresty: 1.21.4.2
+          - openresty: 1.21.4.3
             resty-cli: v0.29
             openssl: 1.1.1n
             openresty-opts: >
@@ -60,7 +48,7 @@ jobs:
               --with-stream_ssl_module
               --with-stream_ssl_preread_module
 
-          - openresty: 1.21.4.2
+          - openresty: 1.25.3.1
             resty-cli: v0.30
             openssl: 1.1.1n
             openresty-opts: >
