@@ -158,7 +158,7 @@ fn main_conf(user: &mut UserArgs) -> Vec<String> {
     conf
 }
 
-pub trait CliOpt {
+pub(crate) trait CliOpt {
     fn get_arg(&self, optarg: &mut Option<String>) -> Result<String, ArgError>;
 
     fn parse_to<T>(&self, value: &mut Option<String>) -> Result<T, ArgError>
@@ -235,14 +235,14 @@ fn include_file(section: &str, fname: String) -> Result<String, ArgError> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Action {
+pub(crate) enum Action {
     Help,
     Version(Option<String>),
     Main(Box<UserArgs>),
 }
 
 impl Action {
-    pub fn run(self) -> i32 {
+    pub(crate) fn run(self) -> i32 {
         match self {
             Action::Help => {
                 println!("{}", USAGE);
@@ -353,7 +353,7 @@ impl Action {
 }
 
 #[derive(Default, Debug, PartialEq, Eq)]
-pub struct UserArgs {
+pub(crate) struct UserArgs {
     pub(crate) inline_lua: Vec<String>,
     pub(crate) lua_file: Option<String>,
     pub(crate) lua_args: Vec<String>,
@@ -397,7 +397,7 @@ fn discover_system_nameservers() -> Vec<IpAddr> {
 }
 
 impl Action {
-    pub fn try_from<T>(args: T) -> Result<Self, ArgError>
+    pub(crate) fn try_from<T>(args: T) -> Result<Self, ArgError>
     where
         T: IntoIterator<Item = String>,
     {
