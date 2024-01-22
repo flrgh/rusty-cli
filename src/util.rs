@@ -60,7 +60,7 @@ pub(crate) fn try_parse_resolv_conf() -> Vec<IpAddr> {
 }
 
 pub(crate) fn split_shell_args<T: AsRef<str> + ?Sized>(s: &T) -> Vec<String> {
-    shlex::split(s.as_ref()).expect("Invalid runner options")
+    shlex::split(s.as_ref()).expect("Invalid shell args")
 }
 
 pub(crate) fn join_shell_args<T: AsRef<str>>(args: &Vec<T>) -> String {
@@ -69,26 +69,50 @@ pub(crate) fn join_shell_args<T: AsRef<str>>(args: &Vec<T>) -> String {
     // The shlex crate takes a slightly different approach of wrapping the
     // entire string in double quotes and then only escaping a few chars
     // within the string. It's a little bit cleaner, but in the interest of
-    // compatibility we'll duplicate the resty-cli algorithm exactly:
+    // compatibility we'll duplicate the resty-cli algorithm exactly*:
     //
     //   s/([\\\s'"><`\[\]\&\$#*?!()|;])/\\$1/g;
     //
-    for arg in args {
-        let mut new = Vec::new();
-
-        for c in arg.as_ref().bytes() {
-            match c as char {
-                '\\' | ' ' | '\t' | '\r' | '\n' | '\'' | '"' | '`' | '<' | '>' | '[' | ']'
-                | '(' | ')' | '|' | ';' | '&' | '$' | '#' | '*' | '?' | '!' => {
-                    new.push(b'\\');
-                }
-                _ => {}
+    // *additionally escaping '{' and '}'
+    #[rustfmt::skip]
+    fn escape(c: u8, buf: &mut Vec<u8>) {
+        match c as char {
+            '\\'
+            | ' ' | '\t' | '\r' | '\n'
+            | '\'' | '"' | '`'
+            | '<' | '>'
+            | '[' | ']'
+            | '(' | ')'
+            | '{' | '}'
+            | '|'
+            | ';'
+            | '&'
+            | '$'
+            | '#'
+            | '*'
+            | '?'
+            | '!'
+            => {
+                buf.push(b'\\');
             }
-
-            new.push(c);
+            _ => {}
         }
 
-        out.push(String::from_utf8(new).unwrap());
+        buf.push(c);
+    }
+
+    let mut arg_buf = Vec::new();
+
+    for arg in args {
+        let arg = arg.as_ref();
+        arg_buf.reserve(arg.len() - arg_buf.len());
+
+        for c in arg.bytes() {
+            escape(c, &mut arg_buf);
+        }
+
+        let bytes = std::mem::take(&mut arg_buf);
+        out.push(String::from_utf8(bytes).unwrap());
     }
 
     out.join(" ")
@@ -100,66 +124,40 @@ mod tests {
 
     #[test]
     fn test_split_shell_args() {
-        assert_eq!(vec![
-                "--nx",
-                "-batch",
-                "-ex",
-                "b main",
-                "-ex",
-                "run",
-                "-ex",
-                "bt",
-                "-ex",
-                "b lj_cf_io_method_write",
-                "-ex",
-                "c",
-                "-ex",
-                "bt",
-            ],
-            split_shell_args("--nx -batch -ex 'b main' -ex run -ex bt -ex 'b lj_cf_io_method_write' -ex c -ex bt")
-        );
+        let tests = vec![
+            (r#"-a -b"#, vec!["-a", "-b"]),
+            (r#"\(\) \[\] \{\} \<\>"#, vec!["()", "[]", "{}", "<>"]),
+            (r#"\\ \" \' \`"#, vec!["\\", "\"", "'", "`"]),
+            (
+                r#"\& \* \# \$ \? \! \; \|"#,
+                vec!["&", "*", "#", "$", "?", "!", ";", "|"],
+            ),
+            (r#"'single quote'"#, vec!["single quote"]),
+            (r#"escaped\ space"#, vec!["escaped space"]),
+        ];
 
-        assert_eq!(vec![
-                "--nx",
-                "-batch",
-                "-ex",
-                "b main",
-                "-ex",
-                "run",
-                "-ex",
-                "bt",
-                "-ex",
-                "b lj_cf_io_method_write",
-                "-ex",
-                "c",
-                "-ex",
-                "bt",
-            ],
-            split_shell_args(" --nx -batch -ex 'b main' -ex run -ex bt -ex 'b lj_cf_io_method_write' -ex c -ex bt  ")
-        );
+        for (input, expect) in tests {
+            assert_eq!(expect, split_shell_args(input));
+        }
     }
 
     #[test]
     fn test_join_shell_args() {
-        assert_eq!(
-            "--nx -batch -ex b\\ main -ex run -ex bt -ex b\\ lj_cf_io_method_write -ex c -ex bt",
-            join_shell_args(&vec![
-                "--nx",
-                "-batch",
-                "-ex",
-                "b main",
-                "-ex",
-                "run",
-                "-ex",
-                "bt",
-                "-ex",
-                "b lj_cf_io_method_write",
-                "-ex",
-                "c",
-                "-ex",
-                "bt",
-            ])
-        );
+        let tests = vec![
+            (r#"-a -b"#, vec!["-a", "-b"]),
+            (r#"\(\) \[\] \{\} \<\>"#, vec!["()", "[]", "{}", "<>"]),
+            (r#"\\ \" \' \`"#, vec!["\\", "\"", "'", "`"]),
+            (
+                r#"\& \* \# \$ \? \! \; \|"#,
+                vec!["&", "*", "#", "$", "?", "!", ";", "|"],
+            ),
+            (r#"single\ quote"#, vec!["single quote"]),
+            (r#"escaped\ space"#, vec!["escaped space"]),
+        ];
+
+        for (expect, input) in tests {
+            assert_eq!(expect, join_shell_args(&input));
+        }
     }
 
     #[test]
