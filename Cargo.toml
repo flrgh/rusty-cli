@@ -1,6 +1,6 @@
 [package]
 name = "rusty-cli"
-version = "0.1.0-pre-7"
+version = "0.1.0-pre-8"
 edition = "2021"
 authors = ["Michael Martin <flrgh@protonmail.com>"]
 license = "BSD-2-Clause"
@@ -55,6 +55,8 @@ aarch64-unknown-linux-musl = "buildjet-8vcpu-ubuntu-2204-arm"
 [workspace.metadata.release]
 sign-commit = true
 sign-tag = true
-push = true # git
+push = true
 tag = true
 consolidate-commits = true
+pre-release-commit-message = "release: {{version}}"
+tag-message = "release: {{version}}"
