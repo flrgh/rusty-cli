@@ -13,7 +13,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::process::Command;
 
-const VERSION: &str = "0.1.0";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const USAGE: &str = r#"Usage: rusty-cli [OPTIONS] [lua-file] [args]...
 
