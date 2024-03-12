@@ -33,7 +33,7 @@ lto = "thin"
 
 # cargo-dist
 [workspace.metadata.dist]
-cargo-dist-version = "0.8.0"
+cargo-dist-version = "0.11.1"
 ci = ["github"]
 installers = ["shell"]
 unix-archive = ".tar.gz"
