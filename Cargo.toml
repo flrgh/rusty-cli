@@ -60,3 +60,7 @@ tag = true
 consolidate-commits = true
 pre-release-commit-message = "release: {{version}}"
 tag-message = "release: {{version}}"
+
+[build-dependencies]
+cargo-dist = "0.14.0"
+cargo-release = "0.25.7"
