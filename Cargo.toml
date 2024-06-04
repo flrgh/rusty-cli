@@ -33,7 +33,7 @@ lto = "thin"
 
 # cargo-dist
 [workspace.metadata.dist]
-cargo-dist-version = "0.14.0"
+cargo-dist-version = "0.15.1"
 ci = ["github"]
 installers = ["shell"]
 unix-archive = ".tar.gz"
@@ -62,5 +62,5 @@ pre-release-commit-message = "release: {{version}}"
 tag-message = "release: {{version}}"
 
 [dev-dependencies]
-cargo-dist = "0.14.1"
+cargo-dist = "0.15.1"
 cargo-release = "0.25.8"
