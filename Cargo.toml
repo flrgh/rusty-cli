@@ -63,4 +63,4 @@ tag-message = "release: {{version}}"
 
 [dev-dependencies]
 cargo-dist = "0.14.1"
-cargo-release = "0.25.7"
+cargo-release = "0.25.8"
