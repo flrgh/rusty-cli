@@ -62,6 +62,7 @@ CLI metadata, error messages, and nginx.conf, I recommend against using `rusty-c
         - [x] custom runner arg parsing and execution
         - [x] lua `arg` global generation
         - [x] nginx.conf generation
+        - [x] nginx binary filesystem location search
 - [ ] automated binary releases
     - [x] x86_64-unknown-linux-gnu
     - [x] x86_64-unknown-linux-musl

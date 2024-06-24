@@ -401,14 +401,15 @@ pub(crate) fn find_nginx_bin(nginx: Option<String>) -> PathBuf {
         return PathBuf::from(path);
     }
 
-    let parent = get_exe().and_then(get_parent).unwrap_or(PathBuf::from("/"));
+    let bin_dir = get_exe().and_then(get_parent).unwrap_or(PathBuf::from("/"));
 
-    let nginx = parent.join("nginx/sbin/nginx");
+    // compatibility: resty-cli uses '..' and does not normalize this path
+    let nginx = bin_dir.join("../nginx/sbin/nginx");
     if nginx.is_file() {
         return nginx;
     }
 
-    let nginx = parent.join("nginx");
+    let nginx = bin_dir.join("nginx");
     if nginx.is_file() {
         return nginx;
     }

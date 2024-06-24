@@ -165,3 +165,6 @@ jobs:
 
       - name: signal-handling
         run: ./tests/sigwinch.sh
+
+      - name: nginx binary location
+        run: ./tests/nginx-bin-search.sh
