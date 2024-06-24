@@ -163,6 +163,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83394fb98d130ef5a4713d26dccc1bb25c66e1d58f351fed710af62c57abb8fa"
 dependencies = [
  "camino",
+ "miette",
+ "mime",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "toml",
+ "toml_edit 0.22.12",
+ "url",
+ "walkdir",
+]
+
+[[package]]
+name = "axoasset"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "324ff9901b842d132aad26d113d5ecbed193a97ea263dfe531296b026de9ff80"
+dependencies = [
+ "camino",
  "flate2",
  "image",
  "miette",
@@ -215,7 +233,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d1a159bdbe9423891114563e07bd5158ba964dfc75c08015e757844972127850"
 dependencies = [
- "axoasset",
+ "axoasset 0.9.5",
  "camino",
  "guppy",
  "itertools 0.12.1",
@@ -242,11 +260,11 @@ dependencies = [
 
 [[package]]
 name = "axoupdater"
-version = "0.6.5"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "669a5ea910fb9b97e3df709c7d0f626fc9e5e9cb83c00bd3a1b4c54835ed8b66"
+checksum = "8cc5997cf9d00fa790ba6f19688d93b89760bd641d1c2482bcfbc2bf56988576"
 dependencies = [
- "axoasset",
+ "axoasset 0.9.5",
  "axoprocess",
  "axotag",
  "camino",
@@ -404,11 +422,11 @@ dependencies = [
 
 [[package]]
 name = "cargo-dist"
-version = "0.15.1"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6797cbd7f3831bbba1cf8c9f1abee0203d5f7dbef616a61ac1ae05e719e4e8e"
+checksum = "12c3a3a9634aaedfb8e647c04cbb87ed2a89c3e352267e60f2fddf302546572a"
 dependencies = [
- "axoasset",
+ "axoasset 0.10.1",
  "axocli",
  "axoprocess",
  "axoproject",
@@ -448,9 +466,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-dist-schema"
-version = "0.15.1"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "821109969225bc7e746ae97ae88dc6de39efe2c60a16f7643808f6fde820355c"
+checksum = "1fb5d81bb4ff84ea43a1845d36d060305842fa058332f6a308fe8b04cc573e1f"
 dependencies = [
  "camino",
  "gazenot",
@@ -606,9 +624,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.4"
+version = "4.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90bc066a67923782aa8515dbaea16946c5bcc5addbd668bb80af688e53e548a0"
+checksum = "5db83dced34638ad474f39f250d7fea9598bdd239eaced1bdf45d597da0f433f"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -627,9 +645,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.2"
+version = "4.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae129e2e766ae0ec03484e609954119f123cc1fe650337e155d03b022f24f7b4"
+checksum = "f7e204572485eb3fbf28f871612191521df159bc3e15a9f5064c66dba3a8c05f"
 dependencies = [
  "anstream",
  "anstyle",
@@ -640,9 +658,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.4"
+version = "4.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "528131438037fd55894f62d6e9f068b8f45ac57ffa77517819645d10aed04f64"
+checksum = "c780290ccf4fb26629baa7a1081e68ced113f1d3ec302fa5948f1c381ebf06c6"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1092,15 +1110,14 @@ dependencies = [
 
 [[package]]
 name = "gazenot"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d48f72c27df37233564f3050f767b1b77fff511143c7428a64b929f279b7a558"
+checksum = "77c01a17924566e445bdf7499f23c0910e8ebe6c34dffd8a72ebdaa81395c3a7"
 dependencies = [
- "axoasset",
+ "axoasset 0.10.1",
  "backon",
  "camino",
  "miette",
- "reqwest",
  "schemars",
  "serde",
  "serde_json",
@@ -1772,9 +1789,9 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "minijinja"
-version = "2.0.1"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7165d0e94806d52ad5295e4b54a95176d831814840bc067298ca647e1c956338"
+checksum = "e136ef580d7955019ab0a407b68d77c292a9976907e217900f3f76bc8f6dc1a4"
 dependencies = [
  "aho-corasick",
  "memo-map",
@@ -2925,9 +2942,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.37.0"
+version = "1.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1adbebffeca75fcfd058afa480fb6c0b81e165a0323f9c9d39c9697e37c46787"
+checksum = "ba4f4a02a7a80d6f274636f0aa95c7e383b912d41fe721a31f29e29698585a4a"
 dependencies = [
  "backtrace",
  "bytes",
@@ -2944,9 +2961,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "2.2.0"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b8a1e28f2deaa14e508979454cb3a223b10b938b45af148bc0986de36f1923b"
+checksum = "5f5ae998a069d4b5aba8ee9dad856af7d520c3699e6159b185c2acd48155d39a"
 dependencies = [
  "proc-macro2",
  "quote",

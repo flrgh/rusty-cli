@@ -62,5 +62,5 @@ pre-release-commit-message = "release: {{version}}"
 tag-message = "release: {{version}}"
 
 [dev-dependencies]
-cargo-dist = "0.15.1"
+cargo-dist = "0.16.0"
 cargo-release = "0.25.8"
