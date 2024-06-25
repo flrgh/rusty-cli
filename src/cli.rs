@@ -11,6 +11,7 @@ use std::fmt::Display;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
+use std::path::PathBuf;
 use std::process::Command;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -250,13 +251,10 @@ impl Action {
             }
 
             Action::Version(nginx_bin) => {
-                let nginx = find_nginx_bin(nginx_bin);
-
-                let mut c = Command::new(nginx);
-                c.arg("-V");
+                let cmd = nginx::version(nginx_bin.as_deref());
 
                 eprintln!("rusty {}", VERSION);
-                run(c)
+                run(cmd)
             }
 
             Action::Main(mut user) => {
@@ -340,7 +338,7 @@ impl Action {
                 drop(file);
 
                 let ngx = nginx::Exec {
-                    bin: find_nginx_bin(user.nginx_bin),
+                    bin: user.nginx_bin.map(PathBuf::from),
                     prefix: prefix.root.clone(),
                     runner: user.runner,
                     label,
