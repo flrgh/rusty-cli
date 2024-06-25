@@ -375,33 +375,30 @@ impl Conf {
     }
 }
 
-fn get_exe() -> Option<PathBuf> {
-    if let Ok(exe) = env::current_exe() {
-        return Some(exe);
-    }
-
-    if let Some(arg_0) = env::args().next() {
-        return Some(PathBuf::from(arg_0));
-    }
-
-    None
+#[cfg(default_nginx_path)]
+fn find_nginx_bin() -> PathBuf {
+    PathBuf::from(env!("NGINX_PATH", "NGINX_PATH is required"))
 }
 
-fn get_parent(path: PathBuf) -> Option<PathBuf> {
-    let mut path = path;
-    if path.pop() {
-        Some(path)
-    } else {
-        None
-    }
+#[cfg(all(test, default_nginx_path))]
+#[test]
+fn test_default_nginx_path() {
+    let got = find_nginx_bin();
+    let exp = env!("NGINX_PATH");
+    assert_eq!(exp, got.to_str().unwrap());
 }
 
-pub(crate) fn find_nginx_bin(nginx: Option<String>) -> PathBuf {
-    if let Some(path) = nginx {
-        return PathBuf::from(path);
-    }
+#[cfg(not(default_nginx_path))]
+fn find_nginx_bin() -> PathBuf {
+    let bin_dir: PathBuf = {
+        let bin = env::current_exe().ok().or_else(|| {
+            // fallback to argv[0]
+            env::args().next().map(PathBuf::from)
+        });
 
-    let bin_dir = get_exe().and_then(get_parent).unwrap_or(PathBuf::from("/"));
+        bin.and_then(|exe| exe.parent().map(PathBuf::from))
+            .unwrap_or(PathBuf::from("/"))
+    };
 
     // compatibility: resty-cli uses '..' and does not normalize this path
     let nginx = bin_dir.join("../nginx/sbin/nginx");
@@ -437,7 +434,7 @@ pub(crate) fn get_resty_compat_version() -> u64 {
 pub(crate) struct Exec {
     pub(crate) prefix: PathBuf,
     pub(crate) runner: Runner,
-    pub(crate) bin: PathBuf,
+    pub(crate) bin: Option<PathBuf>,
     pub(crate) label: Option<String>,
 }
 
@@ -454,6 +451,7 @@ impl From<Exec> for Command {
             .to_str()
             .expect("nginx prefix directory should be a valid string");
 
+        let bin = bin.unwrap_or_else(find_nginx_bin);
         let bin = bin
             .to_str()
             .expect("nginx binary path should be a valid string");
@@ -600,4 +598,15 @@ impl Runner {
             Err(ArgError::Conflict(self.arg_name(), new.arg_name()))
         }
     }
+}
+
+pub(crate) fn version(nginx: Option<&str>) -> Command {
+    let mut cmd = if let Some(nginx) = nginx {
+        Command::new(nginx)
+    } else {
+        Command::new(find_nginx_bin())
+    };
+
+    cmd.arg("-V");
+    cmd
 }

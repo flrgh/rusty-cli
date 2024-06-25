@@ -54,6 +54,52 @@ CLI metadata, error messages, and nginx.conf, I recommend against using `rusty-c
 
 * **Windows Support**: not planned at this time
 
+## Compile-Time Environment Variables
+
+Package maintainers can utilize some environment variables at build time to
+customize behavior.
+
+### Usage
+
+```sh
+MY_VAR=value cargo build
+```
+
+**Warning**: Cargo does not reliably invalidate build cache when setting
+build-time env vars via `--config 'env.VAR="value"'`. For the most consistent
+behavior, set environment vars via your shell.
+
+### NGINX_PATH
+
+This sets the default path to the `nginx` binary that `rusty-cli` will use
+when not explicitly set via the `--nginx` command line option.
+
+#### Example
+
+```sh
+# set a custom default nginx path
+NGINX_PATH=/path/to/sbin/nginx cargo build
+
+# prints `/path/to/sbin/nginx`
+./path/to/rusty-cli -e 'os.execute("realpath /proc/" .. ngx.worker.pid() .. "/exe")'
+```
+
+#### Explanation
+
+As a standalone tool, `resty-cli` checks a couple common locations for the
+`nginx` binary before falling path to `$PATH` resolution ([source](https://github.com/openresty/resty-cli/blob/3022948ef3d670b915bcf7027bcdd917591b96e4/bin/resty#L487-L520)):
+
+  1. `<bin>/../../nginx/sbin/nginx`
+  2. `<bin>/../nginx`
+
+Standard releases of `rusty-cli` replicate this behavior.
+
+When `resty-cli` is installed as part of an official OpenResty package, it is
+patched with the hardcoded nginx path at build time ([source](https://github.com/openresty/openresty/blob/9c9495b6f9277018e683bbee42ce2f6a0edf248d/util/configure#L1174-L1192)).
+
+Compiling with `NGINX_PATH` enables parity with the OpenResty-bundled version of
+`resty-cli`.
+
 ## TODO
 
 - [x] tests

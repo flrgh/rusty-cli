@@ -6,6 +6,7 @@ authors = ["Michael Martin <flrgh@protonmail.com>"]
 license = "BSD-2-Clause"
 repository = "https://github.com/flrgh/rusty-cli"
 description = "resty-cli, rewritten"
+build = "build.rs"
 
 # not publishing to crates.io (yet), but this needs to be set to true
 # in order for cargo-dist to run
@@ -62,5 +63,5 @@ pre-release-commit-message = "release: {{version}}"
 tag-message = "release: {{version}}"
 
 [dev-dependencies]
-cargo-dist = "0.15.1"
-cargo-release = "0.25.8"
+#cargo-dist = "0.15.1"
+#cargo-release = "0.25.8"
