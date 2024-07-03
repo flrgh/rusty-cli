@@ -47,6 +47,9 @@ fn impl_try_parse_resolv_conf<T: Read>(buf: T) -> Vec<IpAddr> {
                 _ => None,
             }
         })
+        // resty-cli only detects IPv4 addresses from resolv.conf
+        // https://github.com/openresty/resty-cli/blob/3022948ef3d670b915bcf7027bcdd917591b96e4/bin/resty#L577
+        .filter(|addr| addr.is_ipv4())
         .take(11) // resty-cli stops adding nameservers after it has > 10
         .collect()
 }
@@ -281,6 +284,18 @@ nameserver 127.0.0.12
                 "127.0.0.10",
                 "127.0.0.11"
             ],
+            impl_try_parse_resolv_conf(input.as_bytes())
+        );
+
+        let input = r##"
+nameserver 127.0.0.1
+nameserver ::1
+nameserver ::1/128
+nameserver 0:0:0:0:0:0:0:1
+nameserver 127.0.0.3
+"##;
+        assert_eq!(
+            addrs!["127.0.0.1", "127.0.0.3"],
             impl_try_parse_resolv_conf(input.as_bytes())
         );
     }

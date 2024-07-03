@@ -15,7 +15,10 @@ fn trim_brackets(s: &str) -> &str {
 // Rust's IP Address type (std::net::IpAddr) cannot be parsed from a string
 // when the string is wrapped in [brackets], so we have our own type.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub(crate) struct IpAddr(String);
+pub(crate) struct IpAddr {
+    str: String,
+    inner: net::IpAddr,
+}
 
 impl Display for IpAddr {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -41,8 +44,21 @@ impl std::str::FromStr for IpAddr {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         trim_brackets(s)
             .parse::<net::IpAddr>()
-            .map(|_| IpAddr(s.to_owned()))
+            .map(|addr| IpAddr {
+                str: s.to_owned(),
+                inner: addr,
+            })
             .map_err(|_| "expecting an IP address".to_string())
+    }
+}
+
+impl IpAddr {
+    pub(crate) fn is_ipv4(&self) -> bool {
+        self.inner.is_ipv4()
+    }
+
+    pub(crate) fn is_ipv6(&self) -> bool {
+        self.inner.is_ipv6()
     }
 }
 
