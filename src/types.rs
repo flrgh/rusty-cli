@@ -22,19 +22,25 @@ pub(crate) struct IpAddr {
 
 impl Display for IpAddr {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self.0)
+        if self.is_ipv6() {
+            // we accept IPv6 addresses with or without brackets, but
+            // nginx always requires brackets
+            write!(f, "[{}]", trim_brackets(&self.str))
+        } else {
+            write!(f, "{}", self.str)
+        }
     }
 }
 
 impl From<IpAddr> for String {
     fn from(val: IpAddr) -> Self {
-        val.0
+        val.to_string()
     }
 }
 
 impl From<&IpAddr> for String {
     fn from(val: &IpAddr) -> Self {
-        val.0.to_owned()
+        val.to_string()
     }
 }
 
@@ -332,17 +338,32 @@ mod tests {
 
     #[test]
     fn ip_addr_from_str() {
-        assert_eq!(Ok(IpAddr("[::1]".to_string())), "[::1]".parse::<IpAddr>());
+        assert_eq!("[::1]".to_string(), "[::1]".parse::<IpAddr>().unwrap().str);
 
         assert_eq!(
-            Ok(IpAddr("[2003:dead:beef:4dad:23:46:bb:101]".to_string())),
-            "[2003:dead:beef:4dad:23:46:bb:101]".parse::<IpAddr>()
+            "[2003:dead:beef:4dad:23:46:bb:101]".to_string(),
+            "[2003:dead:beef:4dad:23:46:bb:101]"
+                .parse::<IpAddr>()
+                .unwrap()
+                .str,
         );
 
         assert_eq!(
-            Ok(IpAddr("127.0.0.1".to_string())),
-            "127.0.0.1".parse::<IpAddr>()
+            "127.0.0.1".to_string(),
+            "127.0.0.1".parse::<IpAddr>().unwrap().str,
         );
+    }
+
+    #[test]
+    fn ip_addr_to_string() {
+        let addr = "127.0.0.1".parse::<IpAddr>().unwrap();
+        assert_eq!("127.0.0.1".to_owned(), addr.to_string());
+
+        let addr = "[::1]".parse::<IpAddr>().unwrap();
+        assert_eq!("[::1]".to_owned(), addr.to_string());
+
+        let addr = "::1".parse::<IpAddr>().unwrap();
+        assert_eq!("[::1]".to_owned(), addr.to_string());
     }
 
     #[test]
