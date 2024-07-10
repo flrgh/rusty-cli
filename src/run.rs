@@ -1,9 +1,10 @@
-use libc::{c_int, kill, pid_t, ESRCH};
-use nix::sys::signal::{SigSet, SigmaskHow::SIG_BLOCK, Signal};
+use libc::pid_t;
+use nix::errno::Errno::ESRCH;
+use nix::sys::signal::{kill, SigSet, SigmaskHow::SIG_BLOCK, Signal};
 use nix::sys::signal::{
     SIGCHLD, SIGHUP, SIGINT, SIGKILL, SIGPIPE, SIGQUIT, SIGTERM, SIGUSR1, SIGUSR2, SIGWINCH,
 };
-use std::io::Error;
+use nix::unistd::Pid;
 use std::process::{Child, Command};
 use std::thread;
 use std::time::Duration;
@@ -13,18 +14,13 @@ const SIGNALS: [Signal; 9] = [
 ];
 
 fn send_signal(proc: &Child, sig: Signal) {
-    let pid = proc.id() as pid_t;
-    let ret = unsafe { kill(pid, sig as c_int) };
-
-    if ret < 0 {
-        let e = Error::last_os_error();
-        match e.raw_os_error() {
-            None => {}
-            Some(ESRCH) => {} // child process is already gone
-            Some(_) => {
-                eprintln!("failed sending signal to {pid}: {e}");
-            }
+    let pid = Pid::from_raw(proc.id() as pid_t);
+    match kill(pid, sig) {
+        Err(ESRCH) => {} // child process is already gone
+        Err(e) => {
+            eprintln!("failed sending signal {sig} to {pid}: {e}");
         }
+        Ok(_) => {}
     }
 }
 
