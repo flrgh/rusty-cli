@@ -1,27 +1,11 @@
 use crate::types::IpAddr;
-use libc::{c_char, mkdtemp};
-use std::ffi::{CStr, CString};
+use nix::unistd::mkdtemp;
 use std::fs;
-use std::io::{self, BufRead, BufReader, ErrorKind, Read};
+use std::io::{self, BufRead, BufReader, Read};
 use std::path::PathBuf;
 
 fn impl_tempdir(tpl: &str) -> io::Result<PathBuf> {
-    use io::Error;
-
-    let tpl = CString::new(tpl).map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
-
-    unsafe {
-        let ptr: *const c_char = mkdtemp(tpl.as_ptr() as *mut c_char);
-
-        if ptr.is_null() {
-            return Err(std::io::Error::last_os_error());
-        }
-
-        CStr::from_ptr(ptr)
-    }
-    .to_str()
-    .map_err(|e| Error::new(ErrorKind::Other, e))
-    .map(PathBuf::from)
+    Ok(mkdtemp(tpl)?)
 }
 
 pub(crate) fn tempdir() -> io::Result<PathBuf> {
@@ -124,6 +108,7 @@ pub(crate) fn join_shell_args<T: AsRef<str>>(args: &Vec<T>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::ErrorKind;
 
     #[test]
     fn test_split_shell_args() {
