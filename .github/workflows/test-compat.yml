@@ -50,7 +50,19 @@ jobs:
 
           - openresty: 1.25.3.2
             resty-cli: v0.30
-            openssl: 1.1.1n
+            openssl: 1.1.1w
+            openresty-opts: >
+              --with-compat
+              --with-pcre-jit
+              --with-stream
+              --with-threads
+              --with-http_ssl_module
+              --with-stream_ssl_module
+              --with-stream_ssl_preread_module
+
+          - openresty: 1.27.1.1
+            resty-cli: v0.30
+            openssl: 3.0.15
             openresty-opts: >
               --with-compat
               --with-pcre-jit
