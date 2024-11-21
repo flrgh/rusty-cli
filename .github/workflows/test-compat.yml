@@ -100,7 +100,10 @@ jobs:
 
       - name: Store OpenResty build opts
         run: |
-          echo '${{ matrix.openresty-opts }}' > .resty-opts
+          > .resty-opts
+          echo '${{ matrix.openresty-opts }}' >> .resty-opts
+          echo '${{ matrix.resty-cli }}'      >> .resty-opts
+          echo '${{ matrix.openssl }}'        >> .resty-opts
 
       - name: cache OpenResty
         uses: actions/cache@v4
