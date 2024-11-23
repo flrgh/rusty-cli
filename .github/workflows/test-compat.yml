@@ -76,9 +76,7 @@ jobs:
         run: echo "RESTY_CLI_COMPAT_VERSION=${{ matrix.resty-cli }}" >> $GITHUB_ENV
 
       - name: cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
+        run: cargo build
 
       - name: sanity
         run: ./target/debug/rusty-cli --help
@@ -102,7 +100,7 @@ jobs:
           key: v2::${{ runner.os }}-openresty-${{ matrix.openresty }}-${{ hashFiles('.resty-opts') }}
 
       - name: setup OpenResty
-        if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
+        if: steps.cache-openresty.outputs.cache-hit != 'true'
         id: setup-openresty
         uses: thibaultcha/setup-openresty@main
         with:
@@ -113,7 +111,7 @@ jobs:
           opt: ${{ matrix.openresty-opts }}
 
       - name: Cleanup OpenResty build artifacts
-        if: ${{ steps.cache-openresty.outputs.cache-hit != 'true' }}
+        if: steps.cache-openresty.outputs.cache-hit != 'true'
         run: |
           rm -rf \
             ./work/OpenResty \
