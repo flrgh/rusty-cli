@@ -114,6 +114,12 @@ jobs:
             work/
           key: v2::${{ runner.os }}-openresty-${{ matrix.openresty }}-${{ hashFiles('.resty-opts') }}
 
+      - name: install OpenResty build deps
+        if: steps.cache-openresty.outputs.cache-hit != 'true'
+        id: openresty-deps
+        run: |
+          sudo apt-get install -y libpcre3-dev
+
       - name: setup OpenResty
         if: steps.cache-openresty.outputs.cache-hit != 'true'
         id: setup-openresty
