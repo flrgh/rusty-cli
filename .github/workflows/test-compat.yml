@@ -50,7 +50,19 @@ jobs:
 
           - openresty: 1.25.3.2
             resty-cli: v0.30
-            openssl: 1.1.1n
+            openssl: 1.1.1w
+            openresty-opts: >
+              --with-compat
+              --with-pcre-jit
+              --with-stream
+              --with-threads
+              --with-http_ssl_module
+              --with-stream_ssl_module
+              --with-stream_ssl_preread_module
+
+          - openresty: 1.27.1.1
+            resty-cli: v0.30
+            openssl: 3.0.15
             openresty-opts: >
               --with-compat
               --with-pcre-jit
@@ -61,10 +73,11 @@ jobs:
               --with-stream_ssl_preread_module
 
     steps:
-      - name: install gdb
+      - name: install deps
+        id: deps
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y gdb
+          sudo apt-get install -y gdb libpcre3
           gdb --version
 
       - uses: actions/checkout@v4
@@ -88,7 +101,10 @@ jobs:
 
       - name: Store OpenResty build opts
         run: |
-          echo '${{ matrix.openresty-opts }}' > .resty-opts
+          > .resty-opts
+          echo '${{ matrix.openresty-opts }}' >> .resty-opts
+          echo '${{ matrix.resty-cli }}'      >> .resty-opts
+          echo '${{ matrix.openssl }}'        >> .resty-opts
 
       - name: cache OpenResty
         uses: actions/cache@v4
@@ -99,10 +115,16 @@ jobs:
             work/
           key: v2::${{ runner.os }}-openresty-${{ matrix.openresty }}-${{ hashFiles('.resty-opts') }}
 
+      - name: install OpenResty build deps
+        if: steps.cache-openresty.outputs.cache-hit != 'true'
+        id: openresty-deps
+        run: |
+          sudo apt-get install -y libpcre3-dev
+
       - name: setup OpenResty
         if: steps.cache-openresty.outputs.cache-hit != 'true'
         id: setup-openresty
-        uses: thibaultcha/setup-openresty@main
+        uses: flrgh/setup-openresty@main
         with:
           version: ${{ matrix.openresty }}
           openssl-version: ${{ matrix.openssl }}
