@@ -73,10 +73,11 @@ jobs:
               --with-stream_ssl_preread_module
 
     steps:
-      - name: install gdb
+      - name: install deps
+        id: openresty-deps
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y gdb
+          sudo apt-get install -y gdb libpcre3
           gdb --version
 
       - uses: actions/checkout@v4
