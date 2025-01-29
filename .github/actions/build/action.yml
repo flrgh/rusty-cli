@@ -1,0 +1,128 @@
+name: build
+description: Build the rusty-cli binary
+
+inputs:
+  build-mode:
+    description: >-
+      Cargo build mode. Choose one of `debug` (default) or `release`.
+    default: 'debug'
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - id: toolchain
+      uses: ./.github/actions/setup
+
+    - name: setup environment vars
+      id: setup-env
+      shell: bash
+      env:
+        BUILD_HASH: >-
+          ${{ hashFiles(
+            '**/Cargo.*',
+            '**/*.rs',
+            './.github/actions/build/**'
+          ) }}
+        BUILD_MODE: ${{ inputs.build-mode == 'release' && 'release' || 'debug' }}
+        RUST_CACHE_KEY: ${{ steps.toolchain.outputs.rust-cache-key }}
+      run: |
+        : ${RUST_CACHE_KEY:?}
+        : ${BUILD_MODE:?} ${BUILD_HASH:?}
+        : ${RUNNER_OS:?} ${RUNNER_ARCH:?}
+
+        set-out() { echo "${1}=${2}" >> $GITHUB_OUTPUT; }
+        set-env() { echo "${1}=${2}" >> $GITHUB_ENV; }
+
+        BUILD_PREFIX="build-${RUNNER_OS}-${RUNNER_ARCH}-${BUILD_MODE}::rust-"
+        set-out cache-prefix "${BUILD_PREFIX}"
+
+        BUILD_PREFIX="${BUILD_PREFIX}${RUST_CACHE_KEY}::"
+        set-out cache-prefix-rust "$BUILD_PREFIX"
+
+        set-out cache-key    "${BUILD_PREFIX}${BUILD_HASH}"
+        set-out build-mode   "${BUILD_MODE}"
+        set-env BUILD_MODE   "${BUILD_MODE}"
+
+    - name: restore build cache
+      id: cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ./target
+          ./cargo-build
+        key: ${{ steps.setup-env.outputs.cache-key }}
+        restore-keys: |
+          ${{ steps.setup-env.outputs.cache-prefix-rust }}
+          ${{ steps.setup-env.outputs.cache-prefix }}
+
+    - name: build
+      id: cargo-build
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -u
+
+        rsync -a ~/.cargo/ ./cargo-pre/
+
+        cargo fetch
+
+        if [[ $BUILD_MODE == release ]]; then
+          cargo build --release
+        else
+          cargo build
+          cargo test --no-run
+        fi
+
+        touch files.txt
+
+        find ~/.cargo -type f -print0 \
+        | while read -r -d '' fname; do
+          rel=${fname#~/.cargo/}
+
+          if [[ $fname -nt ./cargo-pre/$rel ]]; then
+            echo "$rel" >> files.txt
+          fi
+        done
+
+        wc -l files.txt
+        rsync -a --files-from=files.txt ~/.cargo/ ./cargo-build/
+        du -sh \
+          ./target \
+          ~/.cargo \
+          ./cargo-pre \
+          ./cargo-build
+
+        rm -rf ~/.cargo
+        mv ./cargo-pre ~/.cargo
+
+    - name: check build result
+      id: check-build
+      shell: bash
+      run: |
+        BIN=./target/${BUILD_MODE}/rusty-cli
+        if [[ ! -e $BIN ]]; then
+          echo "ERROR: binary ($BIN) not found"
+          exit 1
+        fi
+
+        tmp=$(mktemp)
+        if ! "$BIN" --help &>"$tmp"; then
+          echo "ERROR: $BIN --help returned non-zero"
+          cat "$tmp"
+        fi
+
+    - name: update ~/.cargo contents
+      id: cargo-restore
+      shell: bash
+      run: rsync -a ./cargo-build/ ~/.cargo/
+
+    - name: save build cache
+      id: build-cache-save
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ./target
+          ./cargo-build
+        key: ${{ steps.setup-env.outputs.cache-key }}

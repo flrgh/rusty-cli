@@ -1,35 +1,75 @@
 name: setup
+description: Install the rust toolchain
 
-inputs:
-  build:
-    type: boolean
-    default: false
-    required: false
+outputs:
+  rust-cache-key:
+    description: cache key returned by dtolnay/rust-toolchain
+    value: ${{ steps.toolchain-meta.outputs.rust-cache-key }}
+  rust-name:
+    description: toolchain name returned by dtolnay/rust-toolchain
+    value: ${{ steps.toolchain-meta.outputs.rust-name }}
 
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
+    - name: setup environment vars
+      id: setup-env
+      shell: bash
+      env:
+        TOOLCHAIN_HASH: ${{ hashFiles('.github/actions/setup/**') }}
+      run: |
+        : ${RUNNER_OS:?} ${RUNNER_ARCH:?}
+        : ${TOOLCHAIN_HASH:?}
 
-    - name: restore cache
-      uses: actions/cache@v4
-      id: toolchain-cache
+        set-out() { echo "${1}=${2}" >> $GITHUB_OUTPUT; }
+        set-env() { echo "${1}=${2}" >> $GITHUB_ENV; }
+
+        TOOLCHAIN_PREFIX="toolchain-${RUNNER_OS}-${RUNNER_ARCH}::"
+        set-out toolchain-cache-prefix "${TOOLCHAIN_PREFIX}"
+        set-out toolchain-cache-key    "${TOOLCHAIN_PREFIX}${TOOLCHAIN_HASH}"
+
+    - name: restore toolchain cache
+      id: cache-restore
+      uses: actions/cache/restore@v4
       with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        path: ~/.cargo
+        key: ${{ steps.setup-env.outputs.toolchain-cache-key }}
+        restore-keys: ${{ steps.setup-env.outputs.toolchain-cache-prefix }}
 
     - name: install rust toolchain
-      if: steps.toolchain-cache.outputs.cache-hit != 'true'
+      id: toolchain-install
+      if: steps.cache-restore.outputs.cache-hit != 'true'
       uses: dtolnay/rust-toolchain@stable
       with:
         components: cargo,clippy,rustfmt
 
-    - name: cargo build
-      if: inputs.build == true || inputs.build == 'true'
+    - name: save toolchain meta
+      id: toolchain-meta-save
+      if: steps.cache-restore.outputs.cache-hit != 'true'
       shell: bash
-      run: cargo build
+      env:
+        _CACHE_KEY: ${{ steps.toolchain-install.outputs.cachekey }}
+        _CACHE_NAME: ${{ steps.toolchain-install.outputs.name }}
+      run: |
+        {
+          echo "rust-cache-key=${_CACHE_KEY:?}"
+          echo "rust-name=${_CACHE_NAME:?}"
+        } > ~/.cargo/.ci-meta
+
+    - name: restore toolchain meta
+      id: toolchain-meta
+      shell: bash
+      run: |
+        test -e ~/.cargo/.ci-meta || {
+          echo "ERROR: ~/.cargo/.ci-meta not found"
+          exit 1
+        }
+        cat ~/.cargo/.ci-meta | tee -a $GITHUB_OUTPUT
+
+    - name: save toolchain cache
+      id: cache-save
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.cargo
+        key: ${{ steps.setup-env.outputs.toolchain-cache-key }}
