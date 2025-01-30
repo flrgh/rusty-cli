@@ -1,35 +1,37 @@
 name: test
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '*.md'
-
-  pull_request:
-    branches:
-      - '*'
-    paths-ignore:
-      - '*.md'
+  workflow_call: {}
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  test:
+  cargo-test:
+    name: cargo test (${{ matrix.label }})
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - label: default
+
+          - label: w/ NGINX_PATH
+            NGINX_PATH: /my/nginx
+
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-        with:
-          build: true
+      - uses: ./.github/actions/build
 
       - name: cargo test
-        run: cargo test
-
-      - name: cargo test (NGINX_PATH)
-        run: cargo test
         env:
-          NGINX_PATH: /my/nginx
+          NGINX_PATH: ${{ matrix.NGINX_PATH }}
+        run: |
+          if [[ -n ${NGINX_PATH:-} ]]; then
+            export NGINX_PATH
+          else
+            unset NGINX_PATH
+          fi
+
+          cargo test

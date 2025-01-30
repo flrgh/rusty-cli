@@ -1,0 +1,73 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '*.md'
+
+  pull_request:
+    branches:
+      - '*'
+    paths-ignore:
+      - '*.md'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  toolchain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [toolchain]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/build
+
+  format:
+    name: lint (rustfmt)
+    runs-on: ubuntu-latest
+    needs: [toolchain]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - run: cargo fmt --all -- --check
+
+  check:
+    name: cargo check
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/build
+
+      - name: cargo check
+        run: cargo check
+
+      - name: cargo check (w/ NGINX_PATH)
+        run: NGINX_PATH=/my/nginx cargo check
+
+  clippy:
+    name: lint (clippy)
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/build
+      - run: cargo clippy --no-deps -- -D warnings
+
+  test:
+    uses: ./.github/workflows/test.yml
+    needs: [build]
+
+  compat:
+    uses: ./.github/workflows/test-compat.yml
+    needs: [build]

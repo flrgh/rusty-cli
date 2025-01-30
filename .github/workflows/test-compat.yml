@@ -1,17 +1,7 @@
 name: compatibility tests
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '*.md'
-
-  pull_request:
-    branches:
-      - '*'
-    paths-ignore:
-      - '*.md'
+  workflow_call: {}
 
 defaults:
   run:
@@ -73,6 +63,9 @@ jobs:
               --with-stream_ssl_preread_module
 
     steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/build
+
       - name: install deps
         id: deps
         run: |
@@ -80,19 +73,8 @@ jobs:
           sudo apt-get install -y gdb libpcre3
           gdb --version
 
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-        with:
-          build: true
-
       - name: set resty-cli compat env var
         run: echo "RESTY_CLI_COMPAT_VERSION=${{ matrix.resty-cli }}" >> $GITHUB_ENV
-
-      - name: cargo build
-        run: cargo build
-
-      - name: sanity
-        run: ./target/debug/rusty-cli --help
 
       - name: set OpenResty prefix
         run: |
