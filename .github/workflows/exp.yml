@@ -1,6 +1,7 @@
 name: matrix deps
 
 on:
+  push: {}
   workflow_call: {}
 
 defaults:
