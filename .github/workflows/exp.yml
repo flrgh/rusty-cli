@@ -26,7 +26,7 @@ jobs:
         env:
           SERVICE: ${{ matrix.service }}
         run: |
-          SERVICES='{"postgres":{"image":"postgres:13","env":{"POSTGRES_USER":"test","POSTGRES_DB":"test"},"ports":["5432:5432"]},"redis":{"image":"redis","ports":["6379:6379","6380:6380"]},"all":{"postgres":{"image":"postgres:13","env":{"POSTGRES_USER":"test","POSTGRES_DB":"test"},"ports":["5432:5432"]},"redis":{"image":"redis","ports":["6379:6379","6380:6380"]}}}'
+          SERVICES='{"postgres":{"postgres":{"image":"postgres:13","env":{"POSTGRES_USER":"test","POSTGRES_DB":"test"},"ports":["5432:5432"]}},"redis":{"redis":{"image":"redis","ports":["6379:6379","6380:6380"]}},"all":{"postgres":{"image":"postgres:13","env":{"POSTGRES_USER":"test","POSTGRES_DB":"test"},"ports":["5432:5432"]},"redis":{"image":"redis","ports":["6379:6379","6380:6380"]}}}'
           MATRIX='{"services":["all","postgres","redis"]}'
 
           {
@@ -42,7 +42,7 @@ jobs:
     strategy:
       matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
 
-    #services: ${{ fromJSON(needs.build-matrix.outputs.services)[matrix.services] }}
+    services: ${{ fromJSON(needs.build-matrix.outputs.services)[matrix.services] }}
 
     steps:
       - name: full services output
