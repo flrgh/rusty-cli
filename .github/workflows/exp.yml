@@ -47,12 +47,12 @@ jobs:
     steps:
       - name: full services output
         env:
-          SERVICES: ${{ fromJSON(needs.build-matrix.outputs.services) }}
+          SERVICES: ${{ toJSON(fromJSON(needs.build-matrix.outputs.services)) }}
         run: echo "$SERVICES"
 
       - name: matrix services
         env:
-          SERVICES: ${{ fromJSON(needs.build-matrix.outputs.services)[matrix.services] }}
+          SERVICES: ${{ toJSON(fromJSON(needs.build-matrix.outputs.services)[matrix.services]) }}
         run: echo "$SERVICES"
 
       - name: Dump needs context
