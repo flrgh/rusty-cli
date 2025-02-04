@@ -45,6 +45,16 @@ jobs:
     #services: ${{ fromJSON(needs.build-matrix.outputs.services)[matrix.services] }}
 
     steps:
+      - name: full services output
+        env:
+          SERVICES: ${{ fromJSON(needs.build-matrix.outputs.services) }}
+        run: echo "$SERVICES"
+
+      - name: matrix services
+        env:
+          SERVICES: ${{ fromJSON(needs.build-matrix.outputs.services)[matrix.services] }}
+        run: echo "$SERVICES"
+
       - name: Dump needs context
         env:
           GITHUB_CONTEXT: ${{ toJson(needs) }}
