@@ -106,7 +106,7 @@ jobs:
       - name: setup OpenResty
         if: steps.cache-openresty.outputs.cache-hit != 'true'
         id: setup-openresty
-        uses: flrgh/setup-openresty@main
+        uses: thibaultcha/setup-openresty@main
         with:
           version: ${{ matrix.openresty }}
           openssl-version: ${{ matrix.openssl }}
