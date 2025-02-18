@@ -19,6 +19,7 @@ jobs:
             openssl: 1.1.1n
             openresty-opts: >
               --with-compat
+              --with-pcre
               --with-pcre-jit
               --with-stream
               --with-threads
@@ -31,6 +32,7 @@ jobs:
             openssl: 1.1.1n
             openresty-opts: >
               --with-compat
+              --with-pcre
               --with-pcre-jit
               --with-stream
               --with-threads
@@ -43,6 +45,7 @@ jobs:
             openssl: 1.1.1w
             openresty-opts: >
               --with-compat
+              --with-pcre
               --with-pcre-jit
               --with-stream
               --with-threads
@@ -55,6 +58,7 @@ jobs:
             openssl: 3.0.15
             openresty-opts: >
               --with-compat
+              --with-pcre
               --with-pcre-jit
               --with-stream
               --with-threads
@@ -143,15 +147,35 @@ jobs:
       - name: copy & patch files
         run: ./tests/setup-resty-cli.sh
 
-      - name: sanity 2
+      - name: debug (ldd nginx)
         run: |
-          ./target/debug/rusty-cli --help
-          ./target/debug/rusty-cli \
+          NGINX=$(realpath "$(type -p nginx)")
+          echo "nginx is $NGINX"
+          ldd "$NGINX"
+
+      - name: debug (nginx -V <> rusty-cli -V <> resty -V)
+        run: |
+          split_args() {
+            sed -r -e '/^configure arguments:.*/ s/ (--?)/\n\1/g'
+          }
+
+          echo "::group::nginx -V"
+          nginx -V 2>&1 | split_args
+          echo "::endgroup::"
+
+          echo "::group::rusty-cli -V"
+          rusty-cli -V 2>&1 | split_args
+          echo "::endgroup::"
+
+          echo "::group::resty -V"
+          ./resty-cli/bin/resty -V 2>&1 | split_args
+          echo "::endgroup::"
+
+      - name: debug (rusty-cli w/ gdb)
+        run: |
+          rusty-cli \
              --gdb-opts="--nx -batch -ex 'b main' -ex run -ex bt -ex 'b lj_cf_io_method_write' -ex c -ex bt" \
              -e 'io.stderr:write("hello world!~~\n")'
-
-      - name: nginx info
-        run: nginx -V
 
       - name: prove
         run: prove -r t/

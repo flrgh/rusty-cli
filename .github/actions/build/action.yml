@@ -44,6 +44,9 @@ runs:
         set-out build-mode   "${BUILD_MODE}"
         set-env BUILD_MODE   "${BUILD_MODE}"
 
+        set-out build-binary "$PWD/target/${BUILD_MODE}/rusty-cli"
+        set-env BUILD_BINARY "$PWD/target/${BUILD_MODE}/rusty-cli"
+
     - name: restore build cache
       id: cache-restore
       uses: actions/cache/restore@v4
@@ -96,21 +99,27 @@ runs:
         rm -rf ~/.cargo
         mv ./cargo-pre ~/.cargo
 
-    - name: check build result
-      id: check-build
+    - name: add binary directory to $PATH
+      id: update-path
       shell: bash
       run: |
-        BIN=./target/${BUILD_MODE}/rusty-cli
-        if [[ ! -e $BIN ]]; then
-          echo "ERROR: binary ($BIN) not found"
+        : "${BUILD_BINARY:?}"
+        if [[ ! -e $BUILD_BINARY || ! -x $BUILD_BINARY ]]; then
+          echo "ERROR: binary ($BUILD_BINARY) not found/not executable"
           exit 1
         fi
 
+        BIN_DIR=${BUILD_BINARY%/*}
+        PATH=${BIN_DIR}:${PATH}
+
         tmp=$(mktemp)
-        if ! "$BIN" --help &>"$tmp"; then
-          echo "ERROR: $BIN --help returned non-zero"
+        if ! rusty-cli --help &>"$tmp"; then
+          echo 'ERROR: `rusty-cli --help` returned non-zero'
           cat "$tmp"
+          exit 1
         fi
+
+        echo "$BIN_DIR" >> $GITHUB_PATH
 
     - name: update ~/.cargo contents
       id: cargo-restore
