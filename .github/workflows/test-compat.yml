@@ -143,7 +143,13 @@ jobs:
       - name: copy & patch files
         run: ./tests/setup-resty-cli.sh
 
-      - name: sanity (nginx -V <> rusty-cli -V <> resty -V)
+      - name: debug (ldd nginx)
+        run: |
+          NGINX=$(realpath "$(type -p nginx)")
+          echo "nginx is $NGINX"
+          ldd "$NGINX"
+
+      - name: debug (nginx -V <> rusty-cli -V <> resty -V)
         run: |
           split_args() {
             sed -r -e '/^configure arguments:.*/ s/ (--?)/\n\1/g'
@@ -161,7 +167,7 @@ jobs:
           ./resty-cli/bin/resty -V 2>&1 | split_args
           echo "::endgroup::"
 
-      - name: sanity (rusty-cli w/ gdb)
+      - name: debug (rusty-cli w/ gdb)
         run: |
           rusty-cli \
              --gdb-opts="--nx -batch -ex 'b main' -ex run -ex bt -ex 'b lj_cf_io_method_write' -ex c -ex bt" \
