@@ -143,15 +143,25 @@ jobs:
       - name: copy & patch files
         run: ./tests/setup-resty-cli.sh
 
-      - name: sanity 2
+      - name: sanity (nginx -V verses rusty-cli -V)
         run: |
-          ./target/debug/rusty-cli --help
+          split_args() {
+            sed -r -e '/^configure arguments:.*/ s/ (--?)/\n\1/g'
+          }
+
+          echo "::group::nginx -V"
+          nginx -V 2>&1 | split_args
+          echo "::endgroup::"
+
+          echo "::group::rusty-cli -V"
+          ./target/release/rusty-cli -V 2>&1 | split_args
+          echo "::endgroup::"
+
+      - name: sanity (rusty-cli w/ gdb)
+        run: |
           ./target/debug/rusty-cli \
              --gdb-opts="--nx -batch -ex 'b main' -ex run -ex bt -ex 'b lj_cf_io_method_write' -ex c -ex bt" \
              -e 'io.stderr:write("hello world!~~\n")'
-
-      - name: nginx info
-        run: nginx -V
 
       - name: prove
         run: prove -r t/
