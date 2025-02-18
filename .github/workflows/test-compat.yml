@@ -19,6 +19,7 @@ jobs:
             openssl: 1.1.1n
             openresty-opts: >
               --with-compat
+              --with-pcre
               --with-pcre-jit
               --with-stream
               --with-threads
@@ -31,6 +32,7 @@ jobs:
             openssl: 1.1.1n
             openresty-opts: >
               --with-compat
+              --with-pcre
               --with-pcre-jit
               --with-stream
               --with-threads
@@ -43,6 +45,7 @@ jobs:
             openssl: 1.1.1w
             openresty-opts: >
               --with-compat
+              --with-pcre
               --with-pcre-jit
               --with-stream
               --with-threads
@@ -55,6 +58,7 @@ jobs:
             openssl: 3.0.15
             openresty-opts: >
               --with-compat
+              --with-pcre
               --with-pcre-jit
               --with-stream
               --with-threads
