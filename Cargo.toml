@@ -35,30 +35,6 @@ lto = true
 inherits = "release"
 lto = "thin"
 
-# cargo-dist
-[workspace.metadata.dist]
-cargo-dist-version = "0.28.0"
-ci = ["github"]
-installers = ["shell"]
-unix-archive = ".tar.gz"
-targets = [
-	"x86_64-unknown-linux-gnu",
-	"x86_64-unknown-linux-musl",
-	"aarch64-unknown-linux-gnu",
-	"aarch64-unknown-linux-musl",
-	"x86_64-apple-darwin",
-	"aarch64-apple-darwin",
-]
-
-[workspace.metadata.dist.github-custom-runners]
-# defaults
-global = "ubuntu-22.04"
-x86_64-unknown-linux-gnu = "ubuntu-22.04"
-
-# buildjet runners for arm64
-aarch64-unknown-linux-gnu = "buildjet-8vcpu-ubuntu-2204-arm"
-aarch64-unknown-linux-musl = "buildjet-8vcpu-ubuntu-2204-arm"
-
 # cargo-release
 [workspace.metadata.release]
 sign-commit = true
@@ -70,5 +46,4 @@ pre-release-commit-message = "release: {{version}}"
 tag-message = "release: {{version}}"
 
 [dev-dependencies]
-#cargo-dist = "0.28.0"
 #cargo-release = "0.25.8"
