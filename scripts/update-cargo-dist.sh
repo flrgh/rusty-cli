@@ -5,6 +5,7 @@ shopt -s extglob
 shopt -s patsub_replacement
 
 readonly FILES=(
+    dist-workspace.toml
     Cargo.toml
     .github/workflows/release.yml
 )
@@ -14,6 +15,7 @@ readonly SEMVER='.*([0-9]+\.[0-9]+\.[0-9]+).*'
 OLD_VERSION=
 NEW_VERSION=
 DIST=
+CONF=Cargo.toml
 
 # returns:
 #   * 0 if there are any changes
@@ -23,6 +25,12 @@ any-changed() {
     local -n __destvar=${1:-_}
     __destvar=$(git status --porcelain "${FILES[@]}")
     [[ -n ${__destvar:-} ]]
+}
+
+detect-conf() {
+    if [[ -e dist-workspace.toml ]]; then
+        CONF=dist-workspace.toml
+    fi
 }
 
 assert-clean-checkout() {
@@ -38,10 +46,10 @@ detect-current-version() {
     OLD_VERSION=$(
         sed -n -r \
             -e "s/cargo-dist-version[ ]+=.*$SEMVER/\1/p" \
-            < Cargo.toml
+            < "$CONF"
     )
 
-    echo "current version in Cargo.toml: $OLD_VERSION"
+    echo "current version in $CONF: $OLD_VERSION"
 }
 
 detect-installed-dist-version() {
@@ -72,11 +80,11 @@ run-dist() {
 }
 
 update-cargo-toml() {
-    echo "updating Cargo.toml"
+    echo "updating $CONF"
     sed -i -r \
         -e "s/(cargo-dist-version)[ ]+=.*/\1 = \"$NEW_VERSION\"/g" \
         -e "s/(cargo-dist)[ ]+=.*/\1 = \"$NEW_VERSION\"/g" \
-        Cargo.toml
+        "$CONF"
 }
 
 update-release-workflow() {
@@ -94,6 +102,7 @@ do-git() {
 
 main() {
     assert-clean-checkout
+    detect-conf
     detect-current-version
     detect-installed-dist-version
     update-cargo-toml
