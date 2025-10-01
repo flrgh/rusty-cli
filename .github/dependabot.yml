@@ -2,7 +2,10 @@ version: 2
 updates:
 
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - ".github/actions/build"
+      - ".github/actions/setup"
     schedule:
       interval: "weekly"
 
