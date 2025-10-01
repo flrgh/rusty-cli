@@ -10,8 +10,12 @@ on:
   pull_request:
     branches:
       - '*'
-    paths-ignore:
-      - '*.md'
+    paths:
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - 'tests/**'
+      #- .github/workflows/ci.yml
 
 defaults:
   run:
