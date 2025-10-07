@@ -16,10 +16,9 @@ jobs:
 
     steps:
       - name: matrix
+        id: matrix
         run: |
-          TMP=$(mktemp)
-
-          jq >"$TMP" --null-input '
+          MATRIX=$(jq -c -r --null-input '
             . as $_
 
             | [
@@ -88,8 +87,15 @@ jobs:
                 | .openresty |= unique_by(.)
                 | .["resty-cli"] |= unique_by(.)
               )
-          '
-          echo "matrix=$(< "$TMP")" >> $GITHUB_OUTPUT
+          ')
+
+          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+          {
+            echo '# matrix'
+            echo '```json'
+            jq --indent 2 <<< "$MATRIX"
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
 
   compat:
     name: resty-cli ${{ matrix.resty-cli }} / OpenResty ${{ matrix.openresty }}
