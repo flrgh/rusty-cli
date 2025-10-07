@@ -76,6 +76,7 @@ jobs:
                 | .label += [$label]
                 | .include += [{
                     $label,
+                    $openresty,
                     $openssl,
                     "resty-cli": $cli,
                   }]
@@ -92,7 +93,7 @@ jobs:
           } >> $GITHUB_STEP_SUMMARY
 
   compat:
-    name: resty-cli ${{ matrix.resty-cli }} / OpenResty ${{ matrix.openresty }}
+    name: ${{ matrix.label }}
     runs-on: ubuntu-latest
     needs: [build-matrix]
     strategy:
