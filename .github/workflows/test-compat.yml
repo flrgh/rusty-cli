@@ -22,14 +22,6 @@ jobs:
             . as $_
 
             | [
-                "v0.28",
-                "v0.29",
-                "v0.30",
-                "v0.31",
-                "v0.32"
-              ] as $RESTY_VERSIONS
-
-            | [
                 {
                   openresty: "1.19.9.1",
                   openssl: "1.1.1n",
@@ -63,31 +55,33 @@ jobs:
                 }
               ] as $RESTY_META
 
-            | reduce ($RESTY_META[]) as $meta
+            | reduce (
+                $RESTY_META[]
+                | .openresty as $openresty
+                | .openssl as $openssl
+                | {
+                    $openresty,
+                    $openssl,
+                    cli: .cli[]
+                  }
+              ) as { $openresty, $openssl, $cli }
               (
                 {
-                  openresty: [],
-                  "resty-cli": [],
+                  label: [],
                   include: [],
-                  exclude: [],
                 };
 
                 .
-                | .openresty += [$meta.openresty]
-                | .["resty-cli"] += [$meta.cli[]]
-                | .include += [{ openresty: $meta.openresty, openssl: $meta.openssl }]
-                | reduce ($RESTY_VERSIONS[]) as $resty_cli
-                  (.;
-                    if ($meta.cli | any(. == $resty_cli)) then
-                      .
-                    else
-                      .exclude += [{ openresty: $meta.openresty, "resty-cli": $resty_cli }]
-                    end
-                  )
-                | .openresty |= unique_by(.)
-                | .["resty-cli"] |= unique_by(.)
+                | "cli(\($cli)) - resty(\($openresty))" as $label
+                | .label += [$label]
+                | .include += [{
+                    $label,
+                    $openssl,
+                    "resty-cli": $cli,
+                  }]
               )
-          ')
+            '
+          )
 
           echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
           {
