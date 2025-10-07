@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      matrix: ${{steps.matrix.outputs.matrix}}
+      matrix: ${{ steps.matrix.outputs.matrix }}
 
     steps:
       - name: matrix
@@ -105,7 +105,7 @@ jobs:
       # don't cancel in-progress test if one matrix fails
       fail-fast: false
 
-      matrix: ${{needs.build-matrix.outputs.matrix}}
+      matrix: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
 
     env:
       RESTY_CLI_COMPAT_VERSION: ${{ matrix.resty-cli }}
