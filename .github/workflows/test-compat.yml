@@ -17,54 +17,46 @@ jobs:
           - openresty: 1.19.9.1
             resty-cli: v0.28
             openssl: 1.1.1n
-            openresty-opts: >
-              --with-compat
-              --with-pcre
-              --with-pcre-jit
-              --with-stream
-              --with-threads
-              --with-http_ssl_module
-              --with-stream_ssl_module
-              --with-stream_ssl_preread_module
 
           - openresty: 1.21.4.3
             resty-cli: v0.29
             openssl: 1.1.1n
-            openresty-opts: >
-              --with-compat
-              --with-pcre
-              --with-pcre-jit
-              --with-stream
-              --with-threads
-              --with-http_ssl_module
-              --with-stream_ssl_module
-              --with-stream_ssl_preread_module
 
           - openresty: 1.25.3.2
             resty-cli: v0.30
             openssl: 1.1.1w
-            openresty-opts: >
-              --with-compat
-              --with-pcre
-              --with-pcre-jit
-              --with-stream
-              --with-threads
-              --with-http_ssl_module
-              --with-stream_ssl_module
-              --with-stream_ssl_preread_module
 
-          - openresty: 1.27.1.1
+          - openresty: 1.27.1.2
+            resty-cli: v0.29
+            openssl: 3.4.1
+
+          # 0.29 is the latest version packaged with OpenResty (1.27.1.2), but
+          # we try to test newer versions as they become available on github
+          - openresty: 1.27.1.2
             resty-cli: v0.30
-            openssl: 3.0.15
-            openresty-opts: >
-              --with-compat
-              --with-pcre
-              --with-pcre-jit
-              --with-stream
-              --with-threads
-              --with-http_ssl_module
-              --with-stream_ssl_module
-              --with-stream_ssl_preread_module
+            openssl: 3.4.1
+
+          - openresty: 1.27.1.2
+            resty-cli: v0.31
+            openssl: 3.4.1
+
+          - openresty: 1.27.1.2
+            resty-cli: v0.32
+            openssl: 3.4.1
+
+    env:
+      RESTY_CLI_COMPAT_VERSION: ${{ matrix.resty-cli }}
+      RESTY_BUILD_OPTS: >
+        --with-compat
+        --with-pcre
+        --with-pcre-jit
+        --with-stream
+        --with-threads
+        --with-http_ssl_module
+        --with-stream_ssl_module
+        --with-stream_ssl_preread_module
+      RESTY_OPENSSL_VERSION: ${{ matrix.openssl }}
+      RESTY_VERSION: ${{ matrix.openresty }}
 
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -77,20 +69,17 @@ jobs:
           sudo apt-get install -y gdb libpcre3
           gdb --version
 
-      - name: set resty-cli compat env var
-        run: echo "RESTY_CLI_COMPAT_VERSION=${{ matrix.resty-cli }}" >> $GITHUB_ENV
-
       - name: set OpenResty prefix
         run: |
-          echo OPENRESTY_PREFIX=${GITHUB_WORKSPACE}/openresty/${{ matrix.openresty }} >> $GITHUB_ENV
+          echo OPENRESTY_PREFIX=${GITHUB_WORKSPACE}/openresty/${RESTY_VERSION:?} >> $GITHUB_ENV
           echo PERL5LIB=${GITHUB_WORKSPACE}/work/lib/cpanm/lib/perl5 >> $GITHUB_ENV
 
       - name: Store OpenResty build opts
         run: |
           > .resty-opts
-          echo '${{ matrix.openresty-opts }}' >> .resty-opts
-          echo '${{ matrix.resty-cli }}'      >> .resty-opts
-          echo '${{ matrix.openssl }}'        >> .resty-opts
+          echo "${RESTY_BUILD_OPTS:?}"          >> .resty-opts
+          echo "${RESTY_CLI_COMPAT_VERSION:?}"  >> .resty-opts
+          echo "${RESTY_OPENSSL_VERSION:?}"     >> .resty-opts
 
       - name: cache OpenResty
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
