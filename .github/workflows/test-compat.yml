@@ -7,46 +7,102 @@ defaults:
   run:
     shell: bash
 
-concurrency:
-  group: compat::${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
 jobs:
-  compat:
-    name: resty-cli compat ${{ matrix.resty-cli }} / ${{ matrix.openresty }}
+  build-matrix:
     runs-on: ubuntu-latest
+
+    outputs:
+      matrix: ${{steps.matrix.outputs.matrix}}
+
+    steps:
+      - name: matrix
+        run: |
+          TMP=$(mktemp)
+
+          jq >"$TMP" --null-input '
+            . as $_
+
+            | [
+                "v0.28",
+                "v0.29",
+                "v0.30",
+                "v0.31",
+                "v0.32"
+              ] as $RESTY_VERSIONS
+
+            | [
+                {
+                  openresty: "1.19.9.1",
+                  openssl: "1.1.1n",
+                  cli: [
+                    "v0.28"
+                  ]
+                },
+                {
+                  openresty: "1.21.4.3",
+                  openssl: "1.1.1w",
+                  cli: [
+                    "v0.29"
+                  ]
+                },
+                {
+                  openresty: "1.25.3.2",
+                  openssl: "1.1.1w",
+                  cli: [
+                    "v0.29"
+                  ]
+                },
+                {
+                  openresty: "1.27.1.2",
+                  openssl: "3.4.1",
+                  cli: [
+                    "v0.29",
+                    "v0.30",
+                    "v0.31",
+                    "v0.32"
+                  ]
+                }
+              ] as $RESTY_META
+
+            | reduce ($RESTY_META[]) as $meta
+              (
+                {
+                  openresty: [],
+                  resty_cli: [],
+                  include: [],
+                  exclude: [],
+                };
+
+                .
+                | .openresty += [$meta.openresty]
+                | .resty_cli += [$meta.cli[]]
+                | .include += [{ openresty: $meta.openresty, openssl: $meta.openssl }]
+                | reduce ($RESTY_VERSIONS[]) as $resty_cli
+                  (.;
+                    if ($meta.cli | any(. == $resty_cli)) then
+                      .
+                    else
+                      .exclude += [{ openresty: $meta.openresty, $resty_cli }]
+                    end
+                  )
+                | .openresty |= unique_by(.)
+                | .resty_cli |= unique_by(.)
+              )
+
+              | .["resty-cli"] = .resty_cli
+              | del(.resty_cli)
+          '
+          echo "matrix=$(< "$TMP")" >> $GITHUB_OUTPUT
+
+  compat:
+    name: resty-cli ${{ matrix.resty-cli }} / OpenResty ${{ matrix.openresty }}
+    runs-on: ubuntu-latest
+    needs: [build-matrix]
     strategy:
-      matrix:
-        include:
-          - openresty: 1.19.9.1
-            resty-cli: v0.28
-            openssl: 1.1.1n
+      # don't cancel in-progress test if one matrix fails
+      fail-fast: false
 
-          - openresty: 1.21.4.3
-            resty-cli: v0.29
-            openssl: 1.1.1n
-
-          - openresty: 1.25.3.2
-            resty-cli: v0.30
-            openssl: 1.1.1w
-
-          - openresty: 1.27.1.2
-            resty-cli: v0.29
-            openssl: 3.4.1
-
-          # 0.29 is the latest version packaged with OpenResty (1.27.1.2), but
-          # we try to test newer versions as they become available on github
-          - openresty: 1.27.1.2
-            resty-cli: v0.30
-            openssl: 3.4.1
-
-          - openresty: 1.27.1.2
-            resty-cli: v0.31
-            openssl: 3.4.1
-
-          - openresty: 1.27.1.2
-            resty-cli: v0.32
-            openssl: 3.4.1
+      matrix: ${{needs.build-matrix.outputs.matrix}}
 
     env:
       RESTY_CLI_COMPAT_VERSION: ${{ matrix.resty-cli }}

@@ -8,10 +8,6 @@ defaults:
     shell: bash
 
 
-concurrency:
-  group: test::${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
 jobs:
   cargo-test:
     name: cargo test (${{ matrix.label }})
