@@ -68,29 +68,26 @@ jobs:
               (
                 {
                   openresty: [],
-                  resty_cli: [],
+                  "resty-cli": [],
                   include: [],
                   exclude: [],
                 };
 
                 .
                 | .openresty += [$meta.openresty]
-                | .resty_cli += [$meta.cli[]]
+                | .["resty-cli"] += [$meta.cli[]]
                 | .include += [{ openresty: $meta.openresty, openssl: $meta.openssl }]
                 | reduce ($RESTY_VERSIONS[]) as $resty_cli
                   (.;
                     if ($meta.cli | any(. == $resty_cli)) then
                       .
                     else
-                      .exclude += [{ openresty: $meta.openresty, $resty_cli }]
+                      .exclude += [{ openresty: $meta.openresty, "resty-cli": $cli }]
                     end
                   )
                 | .openresty |= unique_by(.)
-                | .resty_cli |= unique_by(.)
+                | .["resty-cli"] |= unique_by(.)
               )
-
-              | .["resty-cli"] = .resty_cli
-              | del(.resty_cli)
           '
           echo "matrix=$(< "$TMP")" >> $GITHUB_OUTPUT
 
