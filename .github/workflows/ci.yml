@@ -15,7 +15,9 @@ on:
       - '**/Cargo.toml'
       - '**/Cargo.lock'
       - 'tests/**'
-      #- .github/workflows/ci.yml
+      - .github/workflows/ci.yml
+      - .github/workflows/test.yml
+      - .github/workflows/test-compat.yml
 
 defaults:
   run:
