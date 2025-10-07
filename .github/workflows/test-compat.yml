@@ -82,7 +82,7 @@ jobs:
                     if ($meta.cli | any(. == $resty_cli)) then
                       .
                     else
-                      .exclude += [{ openresty: $meta.openresty, "resty-cli": $cli }]
+                      .exclude += [{ openresty: $meta.openresty, "resty-cli": $resty_cli }]
                     end
                   )
                 | .openresty |= unique_by(.)
