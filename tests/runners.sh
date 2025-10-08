@@ -2,6 +2,10 @@
 
 set -u
 
+source ./tests/lib.bash
+testing_init
+
+
 readonly -a ARGS=(
     -e 'print("hello")'
     --errlog-level=notice
@@ -10,47 +14,9 @@ readonly -a ARGS=(
 )
 
 readonly RUNNER_OPTS='-a --flag --option "my quoted $value" --foo=bar a b c'
-
-readonly RUSTY=./target/debug/rusty-cli
-readonly RESTY=./resty-cli/bin/resty
-
 readonly RUNNER_PATH=$PWD/tests/runners/bin:$PATH
 
-readonly TMP=$(mktemp -d)
-
 declare -a FAILED=()
-
-if [[ ${CI:-} == "true" ]]; then
-    readonly CI=1
-
-    log-err() {
-        echo "::error::$1"
-    }
-
-    log-group() {
-        if [[ -n ${1:-} ]]; then
-            echo "::group::$1"
-
-        else
-            echo "::endgroup::"
-        fi
-    }
-
-else
-    readonly CI=0
-
-    log-err() {
-        echo "$1"
-    }
-
-    log-group() {
-        if [[ -n ${1:-} ]]; then
-            echo "-----------------------"
-        fi
-    }
-
-fi
-
 
 run() {
     local -r name=$1

@@ -2,8 +2,9 @@
 
 set -euo pipefail
 
-readonly RUSTY=./target/debug/rusty-cli
-readonly RESTY=./resty-cli/bin/resty
+source ./tests/lib.bash
+testing_init
+
 
 test_it() {
     local -r bin=$1
@@ -20,8 +21,7 @@ test_it() {
 
     while [[ ! -s "$tmp" ]]; do
         kill -0 "$pid" || {
-            echo "fatal: $pid died while we were waiting"
-            exit 1
+            fatal "$pid died while we were waiting"
         }
         sleep 1
     done
@@ -30,8 +30,7 @@ test_it() {
     if [[ -d $prefix ]]; then
         echo "prefix dir: $prefix"
     else
-        echo "fatal: nginx prefix dir ($prefix) does not exist at startup"
-        exit 1
+        fatal "nginx prefix dir ($prefix) does not exist at startup"
     fi
 
     echo -n "sending WINCH..."
@@ -44,7 +43,7 @@ test_it() {
     echo
 
     if [[ ! -d $prefix ]]; then
-        echo "fatal: nginx prefix dir ($prefix) does not exist after WINCH"
+        fatal "nginx prefix dir ($prefix) does not exist after WINCH"
     fi
 
     echo "sending INT..."
@@ -58,12 +57,12 @@ test_it() {
     echo "$bin has exited with code: $ec"
 
     if [[ -d $prefix ]]; then
-        echo "FAILED: nginx prefix dir ($prefix) still exists after stopping"
+        fail "nginx prefix dir ($prefix) still exists after stopping"
         exit 1
     fi
 
     if (( ec != 130 )); then
-        echo "FAILED: unexpected exit code ($ec)"
+        fail "unexpected exit code ($ec)"
         exit 1
     fi
 
