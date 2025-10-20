@@ -327,6 +327,7 @@ impl Action {
                     .http(http_conf(&mut user))
                     .lua(lua_loader)
                     .resty_compat_version(resty_compat_version)
+                    .modules(user.modules)
                     .render(&mut file)
                     .and_then(|_| file.flush());
 
@@ -372,6 +373,7 @@ pub(crate) struct UserArgs {
     pub(crate) main_conf: Vec<String>,
     pub(crate) main_include: Vec<String>,
     pub(crate) user_shdicts: Vec<Shdict>,
+    pub(crate) modules: Vec<String>,
 
     pub(crate) stream_conf: Vec<String>,
     pub(crate) no_stream: bool,
@@ -543,6 +545,10 @@ impl Action {
 
                 "-e" => {
                     arg.push_to(&mut user.inline_lua, optarg)?;
+                }
+
+                "--load-module" => {
+                    user.modules.push(arg.get_arg(optarg)?);
                 }
 
                 "--" => {
