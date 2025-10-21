@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -u
+
+on_sig() {
+    echo "${1:?}"
+}
+
+readarray -t SIGNALS < <(
+    trap -l \
+    | grep -oE '([A-Z]+[0-9]*([+-][0-9]+)?)' \
+    | sort -u
+)
+
+if (( ${#SIGNALS[@]} < 5 )); then
+    echo "failed parsing available signals from 'trap -l'" >&2
+    exit 1
+fi
+
+for sig in "${SIGNALS[@]}"; do
+    trap "on_sig $sig" "$sig"
+done
+
+trap "" SIGCHLD
+
+declare -gi TIMEOUT
+declare -gi EC
+read -r TIMEOUT EC
+
+
+echo $$
+DEADLINE=$(( EPOCHSECONDS + TIMEOUT ))
+while (( EPOCHSECONDS < DEADLINE )); do
+    sleep 0.01
+done
+exit "$EC"

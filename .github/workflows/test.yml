@@ -34,4 +34,5 @@ jobs:
             unset NGINX_PATH
           fi
 
-          cargo test
+          # using --bins to filter out integration tests
+          cargo test --bins

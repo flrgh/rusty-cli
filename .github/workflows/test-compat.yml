@@ -180,6 +180,11 @@ jobs:
       - name: prove
         run: prove -r t/
 
+      - name: cargo - integration
+        env:
+          RUSTY_CLI_TEST_RESTY: "true"
+        run: cargo test integration -- --test-threads 4
+
       - name: runner opts
         run: ./tests/runners.sh
 
@@ -189,7 +194,7 @@ jobs:
       - name: lua script argv translation
         run: ./tests/lua-arg.sh
 
-      - name: signal-handling
+      - name: sigwinch-handling
         run: ./tests/sigwinch.sh
 
       - name: nginx binary location
