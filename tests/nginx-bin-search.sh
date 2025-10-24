@@ -1,46 +1,13 @@
 #!/usr/bin/env bash
 
 set -eu
-readonly RUSTY=./target/debug/rusty-cli
-readonly RESTY=./resty-cli/bin/resty
+
+source ./tests/lib.bash
+testing_init
 
 readonly PATH_SAVE=$PATH
 
 declare -a FAILED=()
-declare -i RAN=0
-
-if [[ ${CI:-} == "true" ]]; then
-    readonly CI=1
-
-    log-err() {
-        echo "::error::$1"
-    }
-
-    log-group() {
-        if [[ -n ${1:-} ]]; then
-            echo "::group::$1"
-
-        else
-            echo "::endgroup::"
-        fi
-    }
-
-else
-    readonly CI=0
-
-    log-err() {
-        echo "$1"
-    }
-
-    log-group() {
-        if [[ -n ${1:-} ]]; then
-            echo "$1"
-        else
-            echo "-----------------------"
-        fi
-    }
-
-fi
 
 expect() {
     local -r exp=$1
@@ -158,7 +125,7 @@ run-test() {
 
     rm -rf "$tmp"
 
-    (( RAN++ )) || true
+    testing_ran
 
     return 0
 }
@@ -351,10 +318,8 @@ if (( ${#FAILED[@]} > 0 )); then
 
     exit 1
 
-elif (( RAN == 0 )); then
-    echo "Something's wrong, no tests were executed?"
-    exit 1
-
 else
+    testing_assert_tests_ran
+
     echo "OK"
 fi

@@ -7,6 +7,7 @@ defaults:
   run:
     shell: bash
 
+
 jobs:
   cargo-test:
     name: cargo test (${{ matrix.label }})

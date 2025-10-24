@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 
 set -u
+source ./tests/lib.bash
+testing_init
 
-readonly RUSTY=./target/debug/rusty-cli
-readonly RESTY=./resty-cli/bin/resty
-
-readonly TMP=$(mktemp -d)
 readonly DIFF=$TMP/diff
-
-trap "rm -rf $TMP" err exit
 
 readonly RUSTY_TMP=$TMP/rusty
 readonly RESTY_TMP=$TMP/resty
@@ -17,61 +13,53 @@ mkdir -p "$RUSTY_TMP" "$RESTY_TMP"
 readonly LUA_ARGV_FILE=./tests/lua/print-argv.lua
 readonly LUA_ARGV_SCRIPT="dofile(\"$LUA_ARGV_FILE\")"
 
-# basic
-readonly TEST_01=("LUA_ARGV")
+declare -g TEST
+declare -g -a ARGS=()
 
-# -e prog before/after
-readonly TEST_02=(-e 'tostring("BEFORE")' "LUA_ARGV")
-readonly TEST_03=(                        "LUA_ARGV" -e 'tostring("AFTER")')
-readonly TEST_04=(-e 'tostring("BEFORE")' "LUA_ARGV" -e 'tostring("AFTER")')
-readonly TEST_05=(-e='tostring("BEFORE")' "LUA_ARGV")
-
-# more args
-readonly TEST_06=(-I test -e 'tostring(1)' -c 10 "LUA_ARGV" --ns 1.2.3.4 -e 'tostring(2)')
-
-# with user args
-readonly TEST_07=("LUA_ARGV" a b c d)
-readonly TEST_08=("LUA_ARGV" -- a b c d)
-
-C=0
-
-if [[ ${CI:-} == "true" ]]; then
-    readonly CI=1
-
-    log-err() {
-        echo "::error::$1"
-    }
-
-    log-group() {
-        if [[ -n ${1:-} ]]; then
-            echo "::group::$1"
-
-        else
-            echo "::endgroup::"
-        fi
-    }
-
-else
-    readonly CI=0
-
-    log-err() {
-        echo "$1"
-    }
-
-    log-group() {
-        if [[ -n ${1:-} ]]; then
-            echo "-----------------------"
-        fi
-    }
-
-fi
-
-
-fatal() {
-    log-err "FATAL: $1"
-    exit 1
+test::basic() {
+    TEST=basic
+    ARGS=("LUA_ARGV")
 }
 
+test::prog_before() {
+    TEST="-e <prog> before"
+    ARGS=(-e 'tostring("BEFORE")' "LUA_ARGV")
+}
+
+test::prog_after() {
+    TEST="-e <prog> after"
+    ARGS=("LUA_ARGV" -e 'tostring("AFTER")')
+}
+
+test::prog_before_and_after() {
+    TEST="-e <prog> before and and after"
+    ARGS=(-e 'tostring("BEFORE")' "LUA_ARGV" -e 'tostring("AFTER")')
+}
+
+test::prog_before_combined() {
+    TEST="-e=<prog> before"
+    ARGS=(-e='tostring("BEFORE")' "LUA_ARGV")
+}
+
+
+test::more_args() {
+    TEST="with more args"
+    ARGS=(-I test -e 'tostring(1)' -c 10 "LUA_ARGV" --ns 1.2.3.4 -e 'tostring(2)')
+}
+
+# with user args
+test::user_args() {
+    TEST="user args"
+    ARGS=("LUA_ARGV" a b c d)
+}
+
+test::user_args_terminated() {
+    TEST="user args, terminated with --"
+    ARGS=("LUA_ARGV" -- a b c d)
+}
+
+
+C=0
 
 run() {
     local -r name=$1
@@ -95,7 +83,7 @@ run() {
 
     env - \
         PATH="$RUNNER_PATH" \
-        RESTY_CLI_COMPAT_VERSION="${RESTY_CLI_COMPAT_VERSION:-0.28}" \
+        RESTY_CLI_COMPAT_VERSION="${RESTY_CLI_COMPAT_VERSION:-0.29}" \
         "${cmd[@]}" \
         > "$TMP/$name.stdout" \
         2> "$TMP/$name.stderr"
@@ -229,6 +217,7 @@ test_args() {
     if (( rc != 0 )); then
         debug_files rusty
         debug_files resty
+        log-group
         exit 1
     fi
 
@@ -236,11 +225,19 @@ test_args() {
 }
 
 test_all() {
+    local -r fn=${1:?}
+
+    declare -g TEST="<empty>"
+    declare -g -a ARGS=()
+    "$fn"
+
+    log-group "${TEST}"
+
     local file_args=()
     local inline_args=()
     local inline_eq_args=()
 
-    for arg in "$@"; do
+    for arg in "${ARGS[@]}"; do
         if [[ $arg == LUA_ARGV ]]; then
             file_args+=("$LUA_ARGV_FILE")
             inline_args+=(-e "$LUA_ARGV_SCRIPT")
@@ -259,22 +256,13 @@ test_all() {
 
 
 main() {
-    if [[ ! -x "$RESTY" ]]; then
-        fatal "resty-cli executable not found at $RESTY"
-    fi
+    local fn
+    for fn in $(compgen -A function "test::"); do
+        test_all "$fn"
+        testing_ran
+    done
 
-    if [[ ! -x "$RUSTY" ]]; then
-        fatal "rusty-cli executable not found at $RUSTY"
-    fi
-
-    test_all "${TEST_01[@]}"
-    test_all "${TEST_02[@]}"
-    test_all "${TEST_03[@]}"
-    test_all "${TEST_04[@]}"
-    test_all "${TEST_05[@]}"
-    test_all "${TEST_06[@]}"
-    test_all "${TEST_07[@]}"
-    test_all "${TEST_08[@]}"
+    testing_assert_tests_ran
 }
 
 main "$@"

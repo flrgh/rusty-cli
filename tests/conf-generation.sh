@@ -1,73 +1,12 @@
 #!/usr/bin/env bash
 
-set -u
+set -euo pipefail
+source ./tests/lib.bash
 
-readonly RUSTY=./target/debug/rusty-cli
-readonly RESTY=./resty-cli/bin/resty
+testing_init
 
-readonly TMP=$(mktemp -d)
-readonly RESTY_JSON=$TMP/resty.json
-readonly RUSTY_JSON=$TMP/rusty.json
-
-
-if [[ ${CI:-} == "true" ]]; then
-    readonly CI=1
-
-    log-err() {
-        echo "::error::$1"
-    }
-
-    log-group() {
-        if [[ -n ${1:-} ]]; then
-            echo "::group::$1"
-
-        else
-            echo "::endgroup::"
-        fi
-    }
-
-else
-    readonly CI=0
-
-    log-err() {
-        echo "$1"
-    }
-
-    log-group() {
-        if [[ -n ${1:-} ]]; then
-            echo "-----------------------"
-        fi
-    }
-
-fi
-
-
-run() {
-    local -r name=$1
-    shift
-
-    local -a cmd=()
-
-    if [[ $name == rusty ]]; then
-        cmd+=( "$RUSTY" )
-    else
-        cmd+=( "$RESTY" )
-    fi
-
-    local first=${1:-}
-
-    if (( $# > 0 && ${#first} > 0 )); then
-        cmd+=( "$@" )
-    fi
-
-    cmd+=( "${ARGS[@]}" )
-
-    env - PATH="$RUNNER_PATH" "${cmd[@]}" \
-        > "$TMP/$name.stdout" \
-        2> "$TMP/$name.stderr"
-
-    echo "$?" > "$TMP/$name.exit_code"
-}
+readonly RUSTY_JSON=${TMP}/rusty.json
+readonly RESTY_JSON=${TMP}/resty.json
 
 
 patch_result() {
@@ -85,18 +24,40 @@ patch_result() {
 }
 
 generate() {
-    local -r exe=$1
-    local -r fname=$2
+    local -r exe=${1:?}
+    local -r fname=${2:?}
+    shift 2
 
-    "$exe" ./tests/lua/nginx-conf-to-json.lua \
-    | jq -S . \
-    > "$fname"
+    testing_exec "$exe" "$@" ./tests/lua/nginx-conf-to-json.lua
+    local stdout=${REPLY[stdout]}
+    assert_exec_ok
+
+    jq -S . \
+        < "$stdout" \
+        > "$fname"
 
     patch_result "$fname"
 
     jq -CS . < "$fname"
 }
 
+
+declare TEST
+declare -a ARGS=()
+declare -i PENDING=0
+
+test::noargs() {
+    TEST="no args"
+    ARGS=()
+}
+
+test::load_module() {
+    TEST="with --load-module <module>"
+    ARGS=(
+        --load-module "foobar"
+    )
+    PENDING=1
+}
 
 main() {
     if [[ ! -x "$RESTY" ]]; then
@@ -111,26 +72,50 @@ main() {
 
     export RUSTY_STRIP_LUA_INDENT=1
 
-    log-group rusty
-    generate "$RUSTY" "$RUSTY_JSON"
-    log-group
+    local fn
+    local rc=0
 
-    log-group resty
-    generate "$RESTY" "$RESTY_JSON"
-    log-group
+    for fn in $(compgen -A function "test::"); do
+        declare -g TEST="${fn#test::}"
+        declare -g -a ARGS=()
+        declare -g -i PENDING=0
 
-    log-group result
+        "$fn"
 
-    rc=0
+        if (( PENDING == 1 )); then
+            log-group "${TEST} - pending"
+            echo "test case is pending"
+            log-group
+            continue
+        fi
 
-    if diff "$RUSTY_JSON" "$RESTY_JSON"; then
-        echo "OK!"
-    else
-        echo "FAILED!"
-        rc=1
-    fi
+        testing_reset_temp
 
-    log-group
+        log-group "${TEST} - args"
+        echo "${ARGS[*]}"
+        log-group
+
+        log-group "${TEST} - rusty"
+        generate "$RUSTY" "$RUSTY_JSON" "${ARGS[@]}"
+        log-group
+
+        log-group "${TEST} - resty"
+        generate "$RESTY" "$RESTY_JSON" "${ARGS[@]}"
+        log-group
+
+        log-group "${TEST} - result"
+        if diff "$RUSTY_JSON" "$RESTY_JSON"; then
+            echo "OK!"
+        else
+            echo "FAILED!"
+            rc=1
+        fi
+        log-group
+
+        testing_ran
+    done
+
+    testing_assert_tests_ran
 
     return "$rc"
 }
