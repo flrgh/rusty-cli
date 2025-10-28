@@ -71,7 +71,8 @@ runs:
         cargo fetch
 
         if [[ $BUILD_MODE == release ]]; then
-          cargo build --release
+          # only build the main binary--don't include other workspace members
+          cargo build --release --bin rusty-cli
         else
           cargo build
           cargo test --no-run
