@@ -1,10 +1,10 @@
 #![allow(static_mut_refs)]
 
+use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use nix::sys::signal::{
     SIGHUP, SIGINT, SIGPIPE, SIGQUIT, SIGSEGV, SIGTERM, SIGUSR1, SIGUSR2, SIGWINCH,
 };
-use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
-use std::fs::{File, metadata};
+use std::fs::{metadata, File};
 use std::io::{Read, Write};
 use std::os::unix::prelude::MetadataExt;
 use std::path::PathBuf;
@@ -16,8 +16,8 @@ const SIGNALS: [Signal; 9] = [
     SIGINT, SIGTERM, SIGQUIT, SIGHUP, SIGUSR1, SIGUSR2, SIGWINCH, SIGPIPE, SIGSEGV,
 ];
 
+use std::sync::mpsc::{channel, Sender};
 use std::sync::Arc;
-use std::sync::mpsc::{Sender, channel};
 
 static mut SENDER: Option<Arc<Sender<Option<Signal>>>> = None;
 

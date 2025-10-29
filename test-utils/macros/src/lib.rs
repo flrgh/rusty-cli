@@ -1,7 +1,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{ItemFn, ItemMod, parse_macro_input};
+use syn::{parse_macro_input, ItemFn, ItemMod};
 
 const fn truthy(s: &str) -> bool {
     s.eq_ignore_ascii_case("true")

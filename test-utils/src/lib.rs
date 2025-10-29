@@ -2,11 +2,11 @@ use nix::errno::Errno;
 use nix::unistd::mkdtemp;
 pub use nix::{
     sys::signal::{
+        kill,
         Signal::{
             self, SIGHUP, SIGINT, SIGKILL, SIGPIPE, SIGQUIT, SIGSEGV, SIGTERM, SIGUSR1, SIGUSR2,
             SIGWINCH,
         },
-        kill,
     },
     unistd::Pid,
 };
