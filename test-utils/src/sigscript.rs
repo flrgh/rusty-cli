@@ -1,4 +1,4 @@
-use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, kill, sigaction};
+use nix::sys::signal::{kill, sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use nix::unistd::Pid;
 use std::fmt::Display;
 use std::process;
