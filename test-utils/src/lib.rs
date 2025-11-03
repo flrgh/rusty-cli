@@ -17,7 +17,12 @@ pub use std::{
     path::PathBuf,
     str::FromStr,
 };
-use std::{process::Child, thread::sleep, time::Duration};
+use std::{
+    process::{Child, Stdio},
+    thread::sleep,
+    time::Duration,
+};
+pub mod nginx;
 pub mod sigscript;
 pub use macros::*;
 
@@ -174,12 +179,83 @@ pub fn cleanup_proc<P: Into<Proc>>(p: P) -> Proc {
     p.into()
 }
 
-pub fn lines(bytes: Vec<u8>) -> Vec<String> {
-    let data = String::try_from(bytes).expect("invalid utf8 bytes");
-    data.split('\n')
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_owned())
-        .collect()
+pub fn lines<T: AsRef<Vec<u8>>>(bytes: T) -> Vec<String> {
+    let bytes = bytes.as_ref();
+
+    let mut lines = Vec::new();
+
+    for chunk in bytes.split(|c| *c == b'\n') {
+        let line = str::from_utf8(chunk).expect("invalid utf-8 bytes");
+        lines.push(line.to_owned());
+    }
+
+    // strip the trailing newline
+    if let Some(last) = lines.pop() {
+        if !last.is_empty() {
+            lines.push(last);
+        }
+    }
+
+    lines.shrink_to_fit();
+
+    lines
+}
+
+pub trait CmdLines {
+    fn stdout_lines(&self) -> Vec<String>;
+    fn stderr_lines(&self) -> Vec<String>;
+}
+
+impl CmdLines for std::process::Output {
+    fn stdout_lines(&self) -> Vec<String> {
+        lines(&self.stdout)
+    }
+
+    fn stderr_lines(&self) -> Vec<String> {
+        lines(&self.stderr)
+    }
+}
+
+pub trait CmdExt {
+    fn assert_output(&mut self) -> std::process::Output;
+
+    fn capture_stdout(&mut self);
+    fn capture_stderr(&mut self);
+
+    fn assert_success(&mut self) -> std::process::Output {
+        let res = self.assert_output();
+        assert!(res.status.success(), "command failed");
+        res
+    }
+
+    fn stdout_lines(&mut self) -> Vec<String> {
+        self.capture_stdout();
+        let res = self.assert_success();
+        res.stdout_lines()
+    }
+
+    fn stderr_lines(&mut self) -> Vec<String> {
+        self.capture_stderr();
+        let res = self.assert_success();
+        res.stderr_lines()
+    }
+}
+
+impl CmdExt for std::process::Command {
+    fn assert_output(&mut self) -> std::process::Output {
+        match self.output() {
+            Ok(output) => output,
+            Err(e) => panic!("command failed {e}"),
+        }
+    }
+
+    fn capture_stdout(&mut self) {
+        self.stdout(Stdio::piped());
+    }
+
+    fn capture_stderr(&mut self) {
+        self.stderr(Stdio::piped());
+    }
 }
 
 pub const fn str_to_bool(s: &str) -> Option<bool> {
@@ -204,6 +280,32 @@ pub const fn str_to_bool(s: &str) -> Option<bool> {
     }
 }
 
+pub trait SymlinkTo<T> {
+    fn symlink_to(&self, target: T);
+}
+
+impl<T> SymlinkTo<T> for PathBuf
+where
+    T: Into<PathBuf>,
+{
+    fn symlink_to(&self, target: T) {
+        let target: PathBuf = target.into();
+        if let Err(e) = std::os::unix::fs::symlink(&target, self) {
+            panic!("failed linking {self:?} to {target:?}: {e}");
+        };
+    }
+}
+
+pub trait Execute {
+    fn cmd(&self) -> std::process::Command;
+}
+
+impl Execute for PathBuf {
+    fn cmd(&self) -> std::process::Command {
+        std::process::Command::new(self)
+    }
+}
+
 #[macro_export]
 macro_rules! touch {
     ($name:expr) => {{
@@ -215,5 +317,46 @@ macro_rules! touch {
         let mut file = File::create_new($name).expect("create file");
         write!(file, "{}", $data).expect("write to file");
         drop(file);
+    }};
+}
+
+#[macro_export]
+macro_rules! assert_empty {
+    ($value:expr) => {
+        assert_empty!($value, "Expected: empty vector/iterator/slice\nGot: {:#?}");
+    };
+
+    ($value:expr, $fmt:expr) => {{
+        let items: Vec<_> = $value.into_iter().collect();
+        assert!(items.is_empty(), $fmt, items);
+    }};
+}
+
+#[macro_export]
+macro_rules! assert_all_matched {
+    ($needles:expr, $haystack:expr) => {{
+        let mut unmatched = std::collections::VecDeque::from($needles);
+
+        for line in $haystack.iter() {
+            if unmatched.is_empty() {
+                break;
+            }
+
+            for _ in 0..unmatched.len() {
+                let Some(next) = unmatched.pop_front() else {
+                    continue;
+                };
+
+                let substr: &str = &*next;
+                if !line.contains(substr) {
+                    unmatched.push_back(next);
+                }
+            }
+        }
+
+        assert_empty!(
+            unmatched,
+            "expected all substrings to match, but {:?} did not"
+        );
     }};
 }

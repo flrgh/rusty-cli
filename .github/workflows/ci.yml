@@ -59,6 +59,17 @@ jobs:
       - name: cargo check (w/ NGINX_PATH)
         run: NGINX_PATH=/my/nginx cargo check
 
+      - name: cargo check (w/ RESTY_CLI_COMPAT_VERSION)
+        run: RESTY_CLI_COMPAT_VERSION=v0.30 cargo check
+
+      - name: cargo check (w/ invalid RESTY_CLI_COMPAT_VERSION)
+        run: |
+          export RESTY_CLI_COMPAT_VERSION=nope-nope-nope
+          if cargo check; then
+            echo "ERROR: expected 'cargo check' to fail" >&2
+            exit 1
+          fi
+
   clippy:
     name: lint (clippy)
     runs-on: ubuntu-latest

@@ -1,7 +1,9 @@
 use crate::types::IpAddr;
 use nix::unistd::mkdtemp;
+use std::ffi::OsString;
 use std::fs;
 use std::io::{self, BufRead, BufReader, Read};
+use std::os::unix::prelude::{OsStrExt, OsStringExt};
 use std::path::PathBuf;
 
 fn impl_tempdir(tpl: &str) -> io::Result<PathBuf> {
@@ -50,20 +52,43 @@ pub(crate) fn split_shell_args<T: AsRef<str> + ?Sized>(s: &T) -> Vec<String> {
     shlex::split(s.as_ref()).expect("Invalid shell args")
 }
 
-pub(crate) fn join_shell_args<T: AsRef<str>>(args: &Vec<T>) -> String {
-    let mut out = Vec::with_capacity(args.len());
+pub(crate) trait SplitArgs {
+    fn split_shell_args(&self) -> Vec<String>;
+}
 
-    // The shlex crate takes a slightly different approach of wrapping the
-    // entire string in double quotes and then only escaping a few chars
-    // within the string. It's a little bit cleaner, but in the interest of
-    // compatibility we'll duplicate the resty-cli algorithm exactly*:
-    //
-    //   s/([\\\s'"><`\[\]\&\$#*?!()|;])/\\$1/g;
-    //
-    // *additionally escaping '{' and '}'
-    #[rustfmt::skip]
-    fn escape(c: u8, buf: &mut Vec<u8>) {
-        match c as char {
+impl SplitArgs for &str {
+    fn split_shell_args(&self) -> Vec<String> {
+        split_shell_args(self)
+    }
+}
+
+impl SplitArgs for String {
+    fn split_shell_args(&self) -> Vec<String> {
+        self.as_str().split_shell_args()
+    }
+}
+
+impl SplitArgs for OsString {
+    fn split_shell_args(&self) -> Vec<String> {
+        self.to_string_lossy().as_ref().split_shell_args()
+    }
+}
+
+// The shlex crate takes a slightly different approach of wrapping the
+// entire string in double quotes and then only escaping a few chars
+// within the string. It's a little bit cleaner, but in the interest of
+// compatibility we'll duplicate the resty-cli algorithm exactly*:
+//
+//   s/([\\\s'"><`\[\]\&\$#*?!()|;])/\\$1/g;
+//
+// *additionally escaping '{' and '}'
+#[rustfmt::skip]
+fn escape_byte<T>(bytes: T, buf: &mut Vec<u8>)
+    where
+        T: IntoIterator<Item = u8>,
+{
+    for b in bytes.into_iter() {
+        match b as char {
             '\\'
             | ' ' | '\t' | '\r' | '\n'
             | '\'' | '"' | '`'
@@ -85,24 +110,52 @@ pub(crate) fn join_shell_args<T: AsRef<str>>(args: &Vec<T>) -> String {
             _ => {}
         }
 
-        buf.push(c);
+        buf.push(b);
     }
+}
 
-    let mut arg_buf = Vec::new();
+pub(crate) fn join_shell_args<T, I>(args: T) -> OsString
+where
+    T: IntoIterator<Item = I>,
+    I: IntoIterator<Item = u8>,
+{
+    let mut out = Vec::new();
+
+    let mut args = args.into_iter();
+    if let Some(arg) = args.next() {
+        //out.reserve(arg.len());
+        escape_byte(arg, &mut out);
+    }
 
     for arg in args {
-        let arg = arg.as_ref();
-        arg_buf.reserve(arg.len() - arg_buf.len());
-
-        for c in arg.bytes() {
-            escape(c, &mut arg_buf);
-        }
-
-        let bytes = std::mem::take(&mut arg_buf);
-        out.push(String::from_utf8(bytes).unwrap());
+        //out.reserve(arg.len() + 1);
+        out.push(b' ');
+        escape_byte(arg, &mut out);
     }
 
-    out.join(" ")
+    OsString::from_vec(out)
+}
+
+pub(crate) trait JoinArgs {
+    fn join_shell_args(&self) -> OsString;
+}
+
+impl JoinArgs for Vec<&str> {
+    fn join_shell_args(&self) -> OsString {
+        join_shell_args(self.iter().map(|arg| arg.bytes()))
+    }
+}
+
+impl JoinArgs for Vec<String> {
+    fn join_shell_args(&self) -> OsString {
+        join_shell_args(self.iter().map(|arg| arg.as_str().bytes()))
+    }
+}
+
+impl JoinArgs for Vec<OsString> {
+    fn join_shell_args(&self) -> OsString {
+        join_shell_args(self.iter().map(|arg| arg.as_bytes().iter().copied()))
+    }
 }
 
 #[cfg(test)]
@@ -125,7 +178,7 @@ mod tests {
         ];
 
         for (input, expect) in tests {
-            assert_eq!(expect, split_shell_args(input));
+            assert_eq!(expect, input.split_shell_args());
         }
     }
 
@@ -144,7 +197,7 @@ mod tests {
         ];
 
         for (expect, input) in tests {
-            assert_eq!(expect, join_shell_args(&input));
+            assert_eq!(expect, input.join_shell_args());
         }
     }
 
@@ -163,10 +216,10 @@ mod tests {
             "`echo 123`",
         ];
 
-        let joined = join_shell_args(&args);
-        let split = split_shell_args(&joined);
-        let rejoined = join_shell_args(&split);
-        let resplit = split_shell_args(&rejoined);
+        let joined = args.join_shell_args();
+        let split = joined.split_shell_args();
+        let rejoined = split.join_shell_args();
+        let resplit = rejoined.split_shell_args();
         assert_eq!(joined, rejoined);
         assert_eq!(args, resplit);
     }
@@ -321,5 +374,96 @@ nameserver 127.0.0.3
         assert!(path.is_dir());
 
         std::fs::remove_dir_all(path).expect("cleanup of temp dir");
+    }
+
+    #[test]
+    fn resty_version_parser() {
+        use crate::compat_version::Version;
+
+        macro_rules! parse {
+            ($input:literal => $exp:expr) => {{
+                let input = $input;
+                let (maj, min) = $exp;
+                assert_eq!(
+                    Some(Version::new(maj, min)),
+                    Version::from_str(input),
+                    "Version::from_str(\"{input}\") => {maj}.{min}"
+                );
+            }};
+        }
+
+        macro_rules! no_parse {
+            ($input:literal) => {{
+                let input = $input;
+                assert_eq!(
+                    None,
+                    Version::from_str(input),
+                    "Version::from_str(\"{input}\") should fail"
+                );
+            }};
+        }
+
+        parse!(".1" => (0, 1));
+        parse!(".1" => (0, 1));
+        parse!(".12" => (0, 12));
+
+        parse!("1" => (1, 0));
+        parse!("1.2" => (1, 2));
+        parse!("1.2.3" => (1, 2));
+        parse!("1.2.3-extra" => (1, 2));
+        parse!("v1" => (1, 0));
+        parse!("v1.2" => (1, 2 ));
+        parse!("v1.2.3" => (1, 2));
+        parse!("v1.2.3-extra" => (1, 2));
+
+        parse!("0.1" => (0, 1));
+        parse!("0.1.2" => (0, 1));
+        parse!("0.1.2" => (0, 1));
+        parse!("0.1.2-extra" => (0, 1));
+        parse!("v0.1" => (0, 1));
+        parse!("v0.1.2" => (0, 1));
+        parse!("v0.1.2" => (0, 1));
+        parse!("v0.1.2-extra" => (0, 1));
+
+        parse!("0.12" => (0, 12));
+        parse!("0.12.34" => (0, 12));
+        parse!("0.12.34" => (0, 12));
+        parse!("0.12.34-extra" => (0, 12));
+        parse!("v0.12" => (0, 12));
+        parse!("v0.12.34" => (0, 12));
+        parse!("v0.12.34" => (0, 12));
+        parse!("v0.12.34-extra" => (0, 12));
+
+        parse!("0.123" => (0, 123));
+        parse!("0.123.456" => (0, 123));
+        parse!("0.123.456" => (0, 123));
+        parse!("0.123.456-extra" => (0, 123));
+        parse!("v0.123" => (0, 123));
+        parse!("v0.123.456" => (0, 123));
+        parse!("v0.123.456" => (0, 123));
+        parse!("v0.123.456-extra" => (0, 123));
+
+        no_parse!("");
+        no_parse!("v");
+        no_parse!("-1");
+        no_parse!("vv1");
+        no_parse!("0..1");
+        no_parse!("..1");
+        no_parse!("vv1");
+
+        no_parse!("999999999999999999999");
+        no_parse!("9999999999999999999999999");
+        no_parse!("1000000000000000000000000000000");
+
+        parse!("10000" => (10_000, 0));
+        parse!("10000.10000" => (10_000, 10_000));
+        no_parse!("100000");
+
+        parse!("65535" => (65_535, 0));
+        parse!("65535.65535" => (65_535, 65_535));
+        parse!("0.65535" => (0, 65_535));
+        no_parse!("65536");
+
+        no_parse!("00000000000000");
     }
 }
