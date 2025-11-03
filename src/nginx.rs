@@ -67,12 +67,10 @@ impl ConfBuilder {
         self
     }
 
-    pub(crate) fn render<T>(self, buf: &mut T) -> io::Result<()>
+    pub(crate) fn render<T>(self, buf: T) -> io::Result<()>
     where
         T: io::Write,
     {
-        let buf = &mut io::BufWriter::new(buf);
-
         Conf::from(self).render(buf)
     }
 }
@@ -109,14 +107,21 @@ struct Conf {
 }
 
 impl Conf {
-    fn render<T>(self, buf: &mut T) -> io::Result<()>
+    fn render<T>(self, mut buf: T) -> io::Result<()>
     where
         T: io::Write,
     {
-        self.render_main(buf)?;
-        self.render_events(buf)?;
-        self.render_stream(buf)?;
-        self.render_http(buf)?;
+        {
+            let buf = &mut buf;
+            self.render_main(buf)?;
+            self.render_events(buf)?;
+            self.render_stream(buf)?;
+            self.render_http(buf)?;
+        }
+
+        // always flush before dropping
+        buf.flush()?;
+        drop(buf);
 
         Ok(())
     }
@@ -412,6 +417,39 @@ pub(crate) struct Exec {
     pub(crate) label: Option<String>,
 }
 
+pub(crate) trait ArgList<T> {
+    fn arg(&mut self, other: T) -> &mut Self;
+}
+
+impl<T, I1, I2> ArgList<(I1, I2)> for T
+where
+    T: ArgList<I1>,
+    T: ArgList<I2>,
+{
+    fn arg(&mut self, other: (I1, I2)) -> &mut Self {
+        self.arg(other.0).arg(other.1)
+    }
+}
+
+impl ArgList<String> for Vec<String> {
+    fn arg(&mut self, other: String) -> &mut Self {
+        self.push(other);
+        self
+    }
+}
+
+impl ArgList<&String> for Vec<String> {
+    fn arg(&mut self, other: &String) -> &mut Self {
+        self.arg(other.to_owned())
+    }
+}
+
+impl ArgList<&str> for Vec<String> {
+    fn arg(&mut self, other: &str) -> &mut Self {
+        self.arg(other.to_string())
+    }
+}
+
 impl From<Exec> for Command {
     fn from(exec: Exec) -> Self {
         let Exec {
@@ -425,82 +463,21 @@ impl From<Exec> for Command {
             .to_str()
             .expect("nginx prefix directory should be a valid string");
 
-        let bin = bin.unwrap_or_else(find_nginx_bin);
-        let bin = bin
-            .to_str()
-            .expect("nginx binary path should be a valid string");
+        let nginx = bin.unwrap_or_else(find_nginx_bin);
+
+        let mut args = vec![];
+
+        if let Some(label) = label {
+            args.arg(("-g", label));
+        }
 
         // resty CLI always adds a trailing slash
         let prefix = format!("{}/", prefix.trim_end_matches('/'));
+        args.arg(("-p", prefix));
 
-        let mut nginx_args = vec![];
+        args.arg(("-c", "conf/nginx.conf"));
 
-        if let Some(label) = label {
-            nginx_args.push(String::from("-g"));
-            nginx_args.push(label);
-        }
-
-        nginx_args.push(String::from("-p"));
-        nginx_args.push(prefix);
-        nginx_args.push(String::from("-c"));
-        nginx_args.push(String::from("conf/nginx.conf"));
-
-        let nginx_bin = bin.to_string();
-        let bin: String;
-        let mut args: Vec<String> = vec![];
-
-        match runner {
-            Runner::Default => {
-                bin = nginx_bin;
-                args.append(&mut nginx_args);
-            }
-            Runner::RR => {
-                bin = String::from("rr");
-                args.push(String::from("record"));
-                args.push(nginx_bin);
-                args.append(&mut nginx_args);
-            }
-            Runner::Stap(opts) => {
-                bin = String::from("stap");
-                args = vec![];
-                if let Some(opts) = opts {
-                    args.append(&mut split_shell_args(&opts));
-                }
-                args.push("-c".to_owned());
-                nginx_args.insert(0, nginx_bin);
-                args.push(join_shell_args(&nginx_args));
-            }
-            Runner::Valgrind(opts) => {
-                bin = "valgrind".to_owned();
-                args = vec![];
-                if let Some(opts) = opts {
-                    args.append(&mut split_shell_args(&opts));
-                }
-                args.push(nginx_bin);
-                args.append(&mut nginx_args);
-            }
-            Runner::Gdb(opts) => {
-                bin = String::from("gdb");
-                if let Some(opts) = opts {
-                    args.append(&mut split_shell_args(&opts));
-                }
-                args.push("--args".to_owned());
-                args.push(nginx_bin);
-                args.append(&mut nginx_args);
-            }
-            Runner::User(runner) => {
-                let mut user_args = split_shell_args(&runner);
-                bin = user_args.remove(0);
-                args.append(&mut user_args);
-                args.push(nginx_bin);
-                args.append(&mut nginx_args);
-            }
-        };
-
-        let mut c = Command::new(bin);
-
-        c.args(args);
-        c
+        runner.into_cmd(nginx, args)
     }
 }
 
@@ -572,9 +549,64 @@ impl Runner {
             Err(ArgError::Conflict(self.arg_name(), new.arg_name()))
         }
     }
+
+    fn into_cmd(self, nginx: PathBuf, args: Vec<String>) -> Command {
+        let mut cmd;
+        match self {
+            Runner::Default => {
+                cmd = Command::new(nginx);
+                cmd.args(args);
+            }
+            Runner::RR => {
+                cmd = Command::new("rr");
+
+                cmd.arg("record").arg(nginx).args(args);
+            }
+            Runner::Stap(opts) => {
+                cmd = Command::new("stap");
+
+                if let Some(opts) = opts {
+                    cmd.args(opts.split_shell_args());
+                }
+
+                cmd.arg("-c");
+
+                let mut args = args;
+                args.insert(0, nginx.to_string_lossy().into());
+
+                cmd.arg(args.join_shell_args());
+            }
+            Runner::Valgrind(opts) => {
+                cmd = Command::new("valgrind");
+
+                if let Some(opts) = opts {
+                    cmd.args(opts.split_shell_args());
+                }
+
+                cmd.arg(nginx).args(args);
+            }
+            Runner::Gdb(opts) => {
+                cmd = Command::new("gdb");
+
+                if let Some(opts) = opts {
+                    cmd.args(opts.split_shell_args());
+                }
+
+                cmd.arg("--args").arg(nginx).args(args);
+            }
+            Runner::User(runner) => {
+                let mut user_args = runner.split_shell_args();
+
+                cmd = Command::new(user_args.remove(0));
+
+                cmd.args(user_args).arg(nginx).args(args);
+            }
+        }
+        cmd
+    }
 }
 
-pub(crate) fn version(nginx: Option<&str>) -> Command {
+pub(crate) fn version(nginx: Option<PathBuf>) -> Command {
     let mut cmd = if let Some(nginx) = nginx {
         Command::new(nginx)
     } else {

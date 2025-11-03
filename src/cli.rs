@@ -253,7 +253,7 @@ fn basename(s: &str) -> &str {
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Action {
     Help(String),
-    Version(String, Option<String>),
+    Version(String, Option<PathBuf>),
     Main(Box<UserArgs>),
 }
 
@@ -268,7 +268,7 @@ impl Action {
             }
 
             Action::Version(argv_0, nginx_bin) => {
-                let cmd = nginx::version(nginx_bin.as_deref());
+                let cmd = nginx::version(nginx_bin);
 
                 let argv_0 = basename(&argv_0);
                 match argv_0 {
@@ -336,8 +336,8 @@ impl Action {
                 };
 
                 let conf_path = prefix.conf.join("nginx.conf");
-                let mut file = match fs::File::create(conf_path) {
-                    Ok(file) => file,
+                let file = match fs::File::create(conf_path) {
+                    Ok(file) => std::io::BufWriter::new(file),
                     Err(e) => {
                         eprintln!("failed opening nginx.conf for writing: {}", e);
                         return 2;
@@ -346,24 +346,20 @@ impl Action {
 
                 let events_conf = vec![format!("worker_connections {};", user.worker_connections)];
 
-                let res = nginx::ConfBuilder::new()
+                if let Err(e) = nginx::ConfBuilder::new()
                     .main(main_conf(&mut user))
                     .events(events_conf)
                     .stream(stream_conf(&mut user), !user.no_stream)
                     .http(http_conf(&mut user))
                     .lua(lua_loader)
-                    .render(&mut file)
-                    .and_then(|_| file.flush());
-
-                if let Err(e) = res {
+                    .render(file)
+                {
                     eprintln!("failed writing nginx.conf file: {}", e);
                     return 2;
                 }
 
-                drop(file);
-
                 let ngx = nginx::Exec {
-                    bin: user.nginx_bin.map(PathBuf::from),
+                    bin: user.nginx_bin,
                     prefix: prefix.root.clone(),
                     runner: user.runner,
                     label,
@@ -382,7 +378,7 @@ pub(crate) struct UserArgs {
     pub(crate) lua_args: Vec<String>,
     pub(crate) jit_cmd: Option<JitCmd>,
 
-    pub(crate) nginx_bin: Option<String>,
+    pub(crate) nginx_bin: Option<PathBuf>,
     pub(crate) worker_connections: u32,
 
     pub(crate) errlog_level: LogLevel,
@@ -525,7 +521,7 @@ impl Action {
 
                 "--nginx" => {
                     let value = arg.get_arg(optarg)?;
-                    user.nginx_bin = Some(value);
+                    user.nginx_bin = Some(value.into());
 
                     if show_version {
                         return Ok(Action::Version(user.arg_0, user.nginx_bin));
@@ -679,7 +675,7 @@ mod tests {
 
     #[test]
     fn version_action_with_nginx_bin() {
-        let exp = Ok(Action::Version("bin".into(), Some("my-nginx".to_string())));
+        let exp = Ok(Action::Version("bin".into(), Some("my-nginx".into())));
 
         assert_eq!(exp, action!("bin", "--version", "--nginx", "my-nginx"));
         assert_eq!(exp, action!("bin", "-V", "--nginx", "my-nginx"));
@@ -828,7 +824,7 @@ mod tests {
 
         assert!(matches!(args.jit_cmd, Some(JitCmd::Off)));
 
-        assert_eq!(Some("my-nginx".to_string()), args.nginx_bin);
+        assert_eq!(Some("my-nginx".into()), args.nginx_bin);
 
         assert_eq!(
             svec![
