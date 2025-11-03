@@ -1,4 +1,9 @@
-pub use std::{path::PathBuf, process::Command};
+#![allow(dead_code)]
+
+pub use std::{
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 pub use test_utils::*;
 
 pub const RUSTY_PATH: &str = env!("CARGO_BIN_EXE_rusty-cli");
@@ -7,7 +12,6 @@ pub const RESTY_PATH: &str = "./resty-cli/bin/resty";
 #[derive(Debug, Clone, Copy)]
 pub enum Bin {
     Rusty,
-    #[allow(dead_code)]
     Resty,
 }
 
@@ -24,7 +28,18 @@ impl Bin {
     }
 
     pub fn cmd(&self) -> Command {
-        Command::new(self.path())
+        let mut cmd = Command::new(self.path());
+
+        // stdout + stderr captured by default
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+
+        cmd.env_clear();
+        if let Some(path) = std::env::var_os("PATH") {
+            cmd.env("PATH", path);
+        }
+
+        cmd
     }
 
     pub fn is_resty(&self) -> bool {
@@ -47,7 +62,6 @@ impl std::fmt::Display for Bin {
 }
 
 pub const RUSTY: Bin = Bin::Rusty;
-#[allow(dead_code)]
 pub const RESTY: Bin = Bin::Resty;
 
 #[derive(Debug, Clone)]

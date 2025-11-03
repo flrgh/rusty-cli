@@ -20,6 +20,9 @@ jobs:
           - label: w/ NGINX_PATH
             NGINX_PATH: /my/nginx
 
+          - label: w/ RESTY_CLI_COMPAT_VERSION
+            RESTY_CLI_COMPAT_VERSION: v0.30
+
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: ./.github/actions/build
@@ -27,11 +30,18 @@ jobs:
       - name: cargo test
         env:
           NGINX_PATH: ${{ matrix.NGINX_PATH }}
+          RESTY_CLI_COMPAT_VERSION: ${{ matrix.RESTY_CLI_COMPAT_VERSION }}
         run: |
           if [[ -n ${NGINX_PATH:-} ]]; then
             export NGINX_PATH
           else
             unset NGINX_PATH
+          fi
+
+          if [[ -n ${RESTY_CLI_COMPAT_VERSION:-} ]]; then
+            export RESTY_CLI_COMPAT_VERSION
+          else
+            unset RESTY_CLI_COMPAT_VERSION
           fi
 
           # using --bins to filter out integration tests

@@ -4,20 +4,18 @@ use crate::nginx::*;
 use crate::run::run;
 use crate::types::*;
 use crate::util::*;
+use crate::RESTY_COMPAT_VERSION;
+use crate::VERSION;
 use std::collections::VecDeque;
 use std::convert::From;
 use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::fs::File;
-use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process::Command;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-const USAGE: &str = r#"Usage: rusty-cli [OPTIONS] [lua-file] [args]...
-
+const USAGE: &str = r#"
 Arguments:
   [lua-file]
 
@@ -235,25 +233,54 @@ fn include_file(section: &str, fname: String) -> Result<String, ArgError> {
     Ok(path.to_str().expect("uh oh").to_string())
 }
 
+fn basename(s: &str) -> &str {
+    if s.is_empty() {
+        return crate::NAME;
+    }
+
+    match s.rsplit_once('/') {
+        Some((prefix, base)) => {
+            if base.is_empty() || base.ends_with('/') {
+                basename(prefix)
+            } else {
+                base
+            }
+        }
+        _ => s,
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Action {
-    Help,
-    Version(Option<String>),
+    Help(String),
+    Version(String, Option<String>),
     Main(Box<UserArgs>),
 }
 
 impl Action {
     pub(crate) fn run(self) -> i32 {
         match self {
-            Action::Help => {
+            Action::Help(argv_0) => {
+                let argv_0 = basename(&argv_0);
+                println!("Usage: {argv_0} [OPTIONS] [lua-file] [args]...");
                 println!("{}", USAGE);
                 0
             }
 
-            Action::Version(nginx_bin) => {
+            Action::Version(argv_0, nginx_bin) => {
                 let cmd = nginx::version(nginx_bin.as_deref());
 
-                eprintln!("rusty {}", VERSION);
+                let argv_0 = basename(&argv_0);
+                match argv_0 {
+                    "resty" | "resty-cli" => {
+                        let (maj, min) = (*RESTY_COMPAT_VERSION).into();
+                        eprintln!("{argv_0} {maj}.{min}");
+                    }
+                    _ => {
+                        eprintln!("{argv_0} {VERSION}");
+                    }
+                }
+
                 run(cmd)
             }
 
@@ -270,10 +297,9 @@ impl Action {
                     user.inline_lua.insert(0, jit.to_lua());
                 }
 
-                let resty_compat_version = get_resty_compat_version();
                 let mut label = None;
 
-                if resty_compat_version >= 30 {
+                if *RESTY_COMPAT_VERSION >= (0, 30).into() {
                     let mut s = String::from("# ");
                     if !user.inline_lua.is_empty() {
                         s.push_str("-e '");
@@ -326,7 +352,6 @@ impl Action {
                     .stream(stream_conf(&mut user), !user.no_stream)
                     .http(http_conf(&mut user))
                     .lua(lua_loader)
-                    .resty_compat_version(resty_compat_version)
                     .render(&mut file)
                     .and_then(|_| file.flush());
 
@@ -436,12 +461,12 @@ impl Action {
                 "-v" | "-V" | "--version" => {
                     show_version = true;
                     if user.nginx_bin.is_some() {
-                        return Ok(Action::Version(user.nginx_bin));
+                        return Ok(Action::Version(user.arg_0, user.nginx_bin));
                     }
                 }
 
                 "-h" | "--help" => {
-                    return Ok(Action::Help);
+                    return Ok(Action::Help(user.arg_0));
                 }
 
                 "--gdb" => runner.update(Runner::Gdb(None))?,
@@ -503,7 +528,7 @@ impl Action {
                     user.nginx_bin = Some(value);
 
                     if show_version {
-                        return Ok(Action::Version(user.nginx_bin));
+                        return Ok(Action::Version(user.arg_0, user.nginx_bin));
                     }
                 }
 
@@ -580,7 +605,7 @@ impl Action {
         user.lua_args.extend(args);
 
         if show_version {
-            return Ok(Action::Version(user.nginx_bin));
+            return Ok(Action::Version(user.arg_0, user.nginx_bin));
         }
 
         if user.inline_lua.is_empty() && user.lua_file.is_none() && user.jit_cmd.is_none() {
@@ -635,7 +660,7 @@ mod tests {
 
     #[test]
     fn version_action() {
-        let exp = Ok(Action::Version(None));
+        let exp = Ok(Action::Version("bin".into(), None));
 
         assert_eq!(exp, action!("bin", "--version"));
         assert_eq!(exp, action!("bin", "-V"));
@@ -644,7 +669,7 @@ mod tests {
 
     #[test]
     fn version_action_with_additional_args() {
-        let exp = Ok(Action::Version(None));
+        let exp = Ok(Action::Version("bin".into(), None));
         assert_eq!(exp, action!("bin", "-v", "--no-stream"));
         assert_eq!(
             exp,
@@ -654,7 +679,7 @@ mod tests {
 
     #[test]
     fn version_action_with_nginx_bin() {
-        let exp = Ok(Action::Version(Some("my-nginx".to_string())));
+        let exp = Ok(Action::Version("bin".into(), Some("my-nginx".to_string())));
 
         assert_eq!(exp, action!("bin", "--version", "--nginx", "my-nginx"));
         assert_eq!(exp, action!("bin", "-V", "--nginx", "my-nginx"));
@@ -675,14 +700,14 @@ mod tests {
 
     #[test]
     fn help_action() {
-        let exp = Ok(Action::Help);
+        let exp = Ok(Action::Help("bin".into()));
         assert_eq!(exp, action!("bin", "-h"));
         assert_eq!(exp, action!("bin", "--help"));
     }
 
     #[test]
     fn help_action_extra_args() {
-        let exp = Ok(Action::Help);
+        let exp = Ok(Action::Help("bin".into()));
         assert_eq!(exp, action!("bin", "-h", "--no-stream"));
         assert_eq!(exp, action!("bin", "--help", "--no-stream"));
         assert_eq!(exp, action!("bin", "--no-stream", "-h"));

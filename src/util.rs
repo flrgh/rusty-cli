@@ -322,4 +322,95 @@ nameserver 127.0.0.3
 
         std::fs::remove_dir_all(path).expect("cleanup of temp dir");
     }
+
+    #[test]
+    fn resty_version_parser() {
+        use crate::compat_version::Version;
+
+        macro_rules! parse {
+            ($input:literal => $exp:expr) => {{
+                let input = $input;
+                let (maj, min) = $exp;
+                assert_eq!(
+                    Some(Version::new(maj, min)),
+                    Version::from_str(input),
+                    "Version::from_str(\"{input}\") => {maj}.{min}"
+                );
+            }};
+        }
+
+        macro_rules! no_parse {
+            ($input:literal) => {{
+                let input = $input;
+                assert_eq!(
+                    None,
+                    Version::from_str(input),
+                    "Version::from_str(\"{input}\") should fail"
+                );
+            }};
+        }
+
+        parse!(".1" => (0, 1));
+        parse!(".1" => (0, 1));
+        parse!(".12" => (0, 12));
+
+        parse!("1" => (1, 0));
+        parse!("1.2" => (1, 2));
+        parse!("1.2.3" => (1, 2));
+        parse!("1.2.3-extra" => (1, 2));
+        parse!("v1" => (1, 0));
+        parse!("v1.2" => (1, 2 ));
+        parse!("v1.2.3" => (1, 2));
+        parse!("v1.2.3-extra" => (1, 2));
+
+        parse!("0.1" => (0, 1));
+        parse!("0.1.2" => (0, 1));
+        parse!("0.1.2" => (0, 1));
+        parse!("0.1.2-extra" => (0, 1));
+        parse!("v0.1" => (0, 1));
+        parse!("v0.1.2" => (0, 1));
+        parse!("v0.1.2" => (0, 1));
+        parse!("v0.1.2-extra" => (0, 1));
+
+        parse!("0.12" => (0, 12));
+        parse!("0.12.34" => (0, 12));
+        parse!("0.12.34" => (0, 12));
+        parse!("0.12.34-extra" => (0, 12));
+        parse!("v0.12" => (0, 12));
+        parse!("v0.12.34" => (0, 12));
+        parse!("v0.12.34" => (0, 12));
+        parse!("v0.12.34-extra" => (0, 12));
+
+        parse!("0.123" => (0, 123));
+        parse!("0.123.456" => (0, 123));
+        parse!("0.123.456" => (0, 123));
+        parse!("0.123.456-extra" => (0, 123));
+        parse!("v0.123" => (0, 123));
+        parse!("v0.123.456" => (0, 123));
+        parse!("v0.123.456" => (0, 123));
+        parse!("v0.123.456-extra" => (0, 123));
+
+        no_parse!("");
+        no_parse!("v");
+        no_parse!("-1");
+        no_parse!("vv1");
+        no_parse!("0..1");
+        no_parse!("..1");
+        no_parse!("vv1");
+
+        no_parse!("999999999999999999999");
+        no_parse!("9999999999999999999999999");
+        no_parse!("1000000000000000000000000000000");
+
+        parse!("10000" => (10_000, 0));
+        parse!("10000.10000" => (10_000, 10_000));
+        no_parse!("100000");
+
+        parse!("65535" => (65_535, 0));
+        parse!("65535.65535" => (65_535, 65_535));
+        parse!("0.65535" => (0, 65_535));
+        no_parse!("65536");
+
+        no_parse!("00000000000000");
+    }
 }

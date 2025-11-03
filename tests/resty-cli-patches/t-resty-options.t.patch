@@ -7,7 +7,7 @@ index 75222b9..922da95 100644
  --- out
  --- err_like eval
 -qr/^resty \d+.\d{2}
-+qr/^rusty \d+[.]\d+[.]\d+(-.+)?
++qr/^rusty(-cli)? \d+[.]\d+[.]\d+(-.+)?
  nginx version: /s
  --- ret: 0
  
