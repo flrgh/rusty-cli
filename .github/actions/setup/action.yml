@@ -30,7 +30,7 @@ runs:
 
     - name: restore toolchain cache
       id: cache-restore
-      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
       with:
         path: ~/.cargo
         key: ${{ steps.setup-env.outputs.toolchain-cache-key }}
@@ -69,7 +69,7 @@ runs:
     - name: save toolchain cache
       id: cache-save
       if: steps.cache-restore.outputs.cache-hit != 'true'
-      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: actions/cache/save@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
       with:
         path: ~/.cargo
         key: ${{ steps.setup-env.outputs.toolchain-cache-key }}
