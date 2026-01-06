@@ -24,7 +24,7 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 defaults:
@@ -48,7 +48,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Update dist-workspace.toml
         id: update
@@ -94,6 +94,7 @@ jobs:
           && steps.check.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.head_ref }}
         run: |
           set -euo pipefail
 
@@ -103,6 +104,14 @@ jobs:
           # masquerade as dependabot
           git config --global user.name 'dependabot[bot]'
           git config --global user.email '<49699333+dependabot[bot]@users.noreply.github.com>'
+
+          # debug
+          git status
+          git remote -v
+
+          if [[ -n ${BRANCH:-} ]]; then
+            git switch -C "$BRANCH"
+          fi
 
           git add "$CONFIG"
           git commit -m "chore(deps): bump actions in $CONFIG"
