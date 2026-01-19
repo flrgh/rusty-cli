@@ -19,7 +19,7 @@ strum = { version = "0.27", features = ["derive"] }
 strum_macros = "0.27"
 libc = "0.2"
 nix = { version = "0.30.1", features = ["signal", "process", "fs", "feature"] }
-thiserror = "2.0.17"
+thiserror = "2.0.18"
 
 [profile.release]
 opt-level = "z"
