@@ -59,6 +59,8 @@ Options:
           Include the specified file in the nginx http configuration block (multiple instances are supported).
       --main-include <PATH>
           Include the specified file in the nginx main configuration block (multiple instances are supported).
+      --load-module <PATH>
+          Load the specified nginx module (multiple instances are supported).
       --valgrind
           Use valgrind to run nginx.
       --valgrind-opts <OPTS>
@@ -347,6 +349,7 @@ impl Action {
                 let events_conf = vec![format!("worker_connections {};", user.worker_connections)];
 
                 if let Err(e) = nginx::ConfBuilder::new()
+                    .load_modules(user.load_modules.clone())
                     .main(main_conf(&mut user))
                     .events(events_conf)
                     .stream(stream_conf(&mut user), !user.no_stream)
@@ -392,6 +395,7 @@ pub(crate) struct UserArgs {
 
     pub(crate) main_conf: Vec<String>,
     pub(crate) main_include: Vec<String>,
+    pub(crate) load_modules: Vec<String>,
     pub(crate) user_shdicts: Vec<Shdict>,
 
     pub(crate) stream_conf: Vec<String>,
@@ -513,6 +517,10 @@ impl Action {
                 "--main-include" => {
                     let value = arg.get_arg(optarg)?;
                     user.main_include.push(include_file("main", value)?);
+                }
+
+                "--load-module" => {
+                    arg.push_to(&mut user.load_modules, optarg)?;
                 }
 
                 "--errlog-level" => {
@@ -729,6 +737,7 @@ mod tests {
             "--http-include",
             "--main-conf",
             "--main-include",
+            "--load-module",
             "--errlog-level",
             "--nginx",
             "--stream-conf",
