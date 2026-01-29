@@ -98,6 +98,8 @@ Options:
           Specifies nginx.conf snippet inserted into the nginx stream {} configuration block (multiple instances are supported).
       --rr
           Use Mozilla rr to record the execution of the underlying nginx C process.
+      --dump-nginx-conf
+          Print the generated nginx configuration file instead of running nginx.
   -h, --help
           Print help (see more with '--help')
 "#.as_bytes());
@@ -354,6 +356,26 @@ impl Action {
                     }
                 };
 
+                let events_conf = vec![format!("worker_connections {};", user.worker_connections)];
+
+                let conf_builder = nginx::ConfBuilder::new()
+                    .load_modules(user.load_modules.clone())
+                    .main(main_conf(&mut user))
+                    .events(events_conf)
+                    .stream(stream_conf(&mut user), !user.no_stream)
+                    .http(http_conf(&mut user))
+                    .lua(lua_loader);
+
+                if user.dump_nginx_conf {
+                    let stdout = std::io::stdout();
+                    let handle = stdout.lock();
+                    if let Err(e) = conf_builder.render(handle) {
+                        eprintln!("failed writing nginx.conf to stdout: {}", e);
+                        return 2;
+                    }
+                    return 0;
+                }
+
                 let conf_path = prefix.conf.join("nginx.conf");
                 let file = match fs::File::create(conf_path) {
                     Ok(file) => std::io::BufWriter::new(file),
@@ -363,17 +385,7 @@ impl Action {
                     }
                 };
 
-                let events_conf = vec![format!("worker_connections {};", user.worker_connections)];
-
-                if let Err(e) = nginx::ConfBuilder::new()
-                    .load_modules(user.load_modules.clone())
-                    .main(main_conf(&mut user))
-                    .events(events_conf)
-                    .stream(stream_conf(&mut user), !user.no_stream)
-                    .http(http_conf(&mut user))
-                    .lua(lua_loader)
-                    .render(file)
-                {
+                if let Err(e) = conf_builder.render(file) {
                     eprintln!("failed writing nginx.conf file: {}", e);
                     return 2;
                 }
@@ -419,6 +431,8 @@ pub(crate) struct UserArgs {
     pub(crate) no_stream: bool,
 
     pub(crate) runner: Runner,
+
+    pub(crate) dump_nginx_conf: bool,
 
     pub(crate) arg_c: usize,
     pub(crate) arg_0: String,
@@ -494,6 +508,10 @@ impl Action {
                 }
 
                 "--rr" => runner.update(Runner::RR)?,
+
+                "--dump-nginx-conf" => {
+                    user.dump_nginx_conf = true;
+                }
 
                 "--stap" => runner.update(Runner::Stap(None))?,
 
@@ -783,6 +801,7 @@ mod tests {
             "--stap",
             "--valgrind",
             "--resolve-ipv6",
+            "--dump-nginx-conf",
         ];
 
         for opt in opts {

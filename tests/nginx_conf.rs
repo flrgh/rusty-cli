@@ -89,4 +89,37 @@ mod nginx_conf {
 
         assert_empty!(cmd.stderr_lines());
     }
+
+    #[bin_test]
+    fn dump_nginx_conf(bin: testlib::Bin) {
+        let mut cmd = bin.cmd();
+
+        // validates that rusty/resty don't actually attempt to run nginx
+        // in this code path
+        cmd.args([
+            "--nginx",
+            "/i/definitely/do/not/exist",
+        ]);
+
+        cmd.args([
+            "--dump-nginx-conf",
+            "-e",
+            "print('hello')",
+        ]);
+
+        let stdout = cmd.stdout_lines();
+
+        assert_all_matched!(
+            vec![
+                "events {",
+                "stream {",
+                "http {",
+                "init_by_lua_block {",
+                "init_worker_by_lua_block {",
+            ],
+            stdout
+        );
+
+        assert_empty!(cmd.stderr_lines());
+    }
 }
