@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 libc = "0.2"
-nix = { version = "0.30.1", features = ["signal", "process", "fs", "feature"] }
+nix = { version = "0.31.1", features = ["signal", "process", "fs", "feature"] }
 macros = { path = "./macros" }
