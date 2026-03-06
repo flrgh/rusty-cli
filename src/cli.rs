@@ -15,7 +15,13 @@ use std::fs::File;
 use std::path::PathBuf;
 use std::process::Command;
 
-const USAGE: &str = r#"
+fn print_usage() {
+    let resty_version = *RESTY_COMPAT_VERSION;
+
+    let stdout = std::io::stdout().lock();
+    let mut stdout = std::io::BufWriter::new(stdout);
+    use std::io::Write;
+    let _ = stdout.write_all(r#"
 Arguments:
   [lua-file]
 
@@ -58,9 +64,18 @@ Options:
       --http-include <PATH>
           Include the specified file in the nginx http configuration block (multiple instances are supported).
       --main-include <PATH>
-          Include the specified file in the nginx main configuration block (multiple instances are supported).
+          Include the specified file in the nginx main configuration block (multiple instances are supported)."#.as_bytes());
+
+    if resty_version >= (0, 31).into() {
+        let _ = stdout.write_all(
+            r#"
       --load-module <PATH>
-          Load the specified nginx module (multiple instances are supported).
+          Load the specified nginx module (multiple instances are supported)."#
+                .as_bytes(),
+        );
+    }
+
+    let _ = stdout.write_all(r#"
       --valgrind
           Use valgrind to run nginx.
       --valgrind-opts <OPTS>
@@ -84,7 +99,9 @@ Options:
       --rr
           Use Mozilla rr to record the execution of the underlying nginx C process.
   -h, --help
-          Print help (see more with '--help')"#;
+          Print help (see more with '--help')
+"#.as_bytes());
+}
 
 fn resolver(user: &mut UserArgs) -> String {
     let mut ns: Vec<String> = user.nameservers.iter().map(IpAddr::to_string).collect();
@@ -265,7 +282,7 @@ impl Action {
             Action::Help(argv_0) => {
                 let argv_0 = basename(&argv_0);
                 println!("Usage: {argv_0} [OPTIONS] [lua-file] [args]...");
-                println!("{}", USAGE);
+                print_usage();
                 0
             }
 

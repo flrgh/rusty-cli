@@ -176,4 +176,4 @@ pub(crate) const RESTY_COMPAT_MIN: Version = Version::new(0, 28);
 
 /// The maximum supported resty-cli version
 #[allow(dead_code)]
-pub(crate) const RESTY_COMPAT_MAX: Version = Version::new(0, 30);
+pub(crate) const RESTY_COMPAT_MAX: Version = Version::new(0, 31);
