@@ -3,7 +3,7 @@
 pub(crate) const RESTY_COMPAT_VAR: &str = "RESTY_CLI_COMPAT_VERSION";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Version {
+pub struct Version {
     pub(crate) maj: u16,
     pub(crate) min: u16,
 }
@@ -34,7 +34,7 @@ impl std::fmt::Display for Version {
 
 impl Version {
     // this is pretty ridiculous, but hey it's const!
-    pub(crate) const fn from_bytes(value: &[u8]) -> Option<Self> {
+    pub const fn from_bytes(value: &[u8]) -> Option<Self> {
         /// the most base-10 digits we can fit into a 16 bit integer (65,535)
         const MAX_LEN: usize = 5;
 
@@ -137,11 +137,11 @@ impl Version {
         }
     }
 
-    pub(crate) const fn from_str(value: &str) -> Option<Self> {
+    pub const fn from_str(value: &str) -> Option<Self> {
         Self::from_bytes(value.as_bytes())
     }
 
-    pub(crate) fn from_env() -> Option<Result<Self, String>> {
+    pub fn from_env() -> Option<Result<Self, String>> {
         let Ok(var) = std::env::var(RESTY_COMPAT_VAR) else {
             return None;
         };
@@ -172,8 +172,8 @@ impl Ord for Version {
 
 /// The minimum supported resty-cli version
 #[allow(dead_code)]
-pub(crate) const RESTY_COMPAT_MIN: Version = Version::new(0, 28);
+pub const RESTY_COMPAT_MIN: Version = Version::new(0, 28);
 
 /// The maximum supported resty-cli version
 #[allow(dead_code)]
-pub(crate) const RESTY_COMPAT_MAX: Version = Version::new(0, 30);
+pub const RESTY_COMPAT_MAX: Version = Version::new(0, 31);

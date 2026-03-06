@@ -6,6 +6,11 @@ pub use std::{
 };
 pub use test_utils::*;
 
+#[allow(dead_code)]
+pub mod compat_version {
+    include!("../../src/compat_version.rs");
+}
+
 pub const RUSTY_PATH: &str = env!("CARGO_BIN_EXE_rusty-cli");
 pub const RESTY_PATH: &str = "./resty-cli/bin/resty";
 
@@ -106,4 +111,25 @@ macro_rules! each {
             }
         }
     };
+}
+
+pub fn check_min_version(minor: u16, major: u16) -> bool {
+    use compat_version::{Version, RESTY_COMPAT_MAX};
+    let min = Version::new(minor, major);
+    let current = match Version::from_env() {
+        Some(Ok(v)) => v,
+        _ => RESTY_COMPAT_MAX,
+    };
+
+    current >= min
+}
+
+#[macro_export]
+macro_rules! min_resty_version {
+    ($min:literal, $maj:literal) => {{
+        if !testlib::check_min_version($min, $maj) {
+            eprintln!("SKIP {}.{}", $min, $maj);
+            return;
+        }
+    }};
 }

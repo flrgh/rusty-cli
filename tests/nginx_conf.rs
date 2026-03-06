@@ -24,9 +24,9 @@ mod nginx_conf {
         assert_empty!(cmd.stderr_lines());
     }
 
-    #[test]
-    fn sections() {
-        let mut cmd = testlib::RUSTY.cmd();
+    #[bin_test]
+    fn sections(bin: testlib::Bin) {
+        let mut cmd = bin.cmd();
 
         let nginx = testlib::testbin("print_nginx_conf");
         cmd.args(["--nginx", nginx.as_str(), "-e", "nothing"]);
@@ -40,6 +40,51 @@ mod nginx_conf {
                 "init_worker_by_lua_block {",
             ],
             cmd.stdout_lines()
+        );
+
+        assert_empty!(cmd.stderr_lines());
+    }
+
+    #[bin_test]
+    fn load_module(bin: testlib::Bin) {
+        min_resty_version!(0, 31);
+
+        let mut cmd = bin.cmd();
+
+        let nginx = testlib::testbin("print_nginx_conf");
+        cmd.args([
+            "--nginx",
+            nginx.as_str(),
+            "--load-module",
+            "/path/to/module_a.so",
+            "--load-module",
+            "/path/to/module_b.so",
+            "-e",
+            "nothing",
+        ]);
+
+        let stdout = cmd.stdout_lines();
+
+        assert_all_matched!(
+            vec![
+                "load_module /path/to/module_a.so;",
+                "load_module /path/to/module_b.so;",
+            ],
+            stdout.clone()
+        );
+
+        let load_module_pos = stdout
+            .iter()
+            .position(|line| line.contains("load_module"))
+            .expect("load_module directive not found");
+        let daemon_pos = stdout
+            .iter()
+            .position(|line| line.contains("daemon off"))
+            .expect("daemon off directive not found");
+
+        assert!(
+            load_module_pos < daemon_pos,
+            "load_module should appear before daemon off"
         );
 
         assert_empty!(cmd.stderr_lines());

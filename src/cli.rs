@@ -15,7 +15,13 @@ use std::fs::File;
 use std::path::PathBuf;
 use std::process::Command;
 
-const USAGE: &str = r#"
+fn print_usage() {
+    let resty_version = *RESTY_COMPAT_VERSION;
+
+    let stdout = std::io::stdout().lock();
+    let mut stdout = std::io::BufWriter::new(stdout);
+    use std::io::Write;
+    let _ = stdout.write_all(r#"
 Arguments:
   [lua-file]
 
@@ -52,7 +58,18 @@ Options:
       --http-conf <CONF>
           Specifies nginx.conf snippet inserted into the http {} configuration block (multiple instances are supported).
       --stream-conf <CONF>
-          Disable the stream {} configuration in auto-generated nginx.conf.
+          Disable the stream {} configuration in auto-generated nginx.conf."#.as_bytes());
+
+    if resty_version >= (0, 31).into() {
+        let _ = stdout.write_all(
+            r#"
+      --load-module <MOD>
+          Load the specified nginx module. (multiple instances are supported)."#
+                .as_bytes(),
+        );
+    }
+
+    let _ = stdout.write_all(r#"
       --main-conf <CONF>
           Specifies nginx.conf snippet inserted into the nginx main {} configuration block (multiple instances are supported).
       --http-include <PATH>
@@ -82,7 +99,9 @@ Options:
       --rr
           Use Mozilla rr to record the execution of the underlying nginx C process.
   -h, --help
-          Print help (see more with '--help')"#;
+          Print help (see more with '--help')
+"#.as_bytes());
+}
 
 fn resolver(user: &mut UserArgs) -> String {
     let mut ns: Vec<String> = user.nameservers.iter().map(IpAddr::to_string).collect();
@@ -263,7 +282,7 @@ impl Action {
             Action::Help(argv_0) => {
                 let argv_0 = basename(&argv_0);
                 println!("Usage: {argv_0} [OPTIONS] [lua-file] [args]...");
-                println!("{}", USAGE);
+                print_usage();
                 0
             }
 
@@ -347,6 +366,7 @@ impl Action {
                 let events_conf = vec![format!("worker_connections {};", user.worker_connections)];
 
                 if let Err(e) = nginx::ConfBuilder::new()
+                    .load_modules(user.load_modules.clone())
                     .main(main_conf(&mut user))
                     .events(events_conf)
                     .stream(stream_conf(&mut user), !user.no_stream)
@@ -392,6 +412,7 @@ pub(crate) struct UserArgs {
 
     pub(crate) main_conf: Vec<String>,
     pub(crate) main_include: Vec<String>,
+    pub(crate) load_modules: Vec<String>,
     pub(crate) user_shdicts: Vec<Shdict>,
 
     pub(crate) stream_conf: Vec<String>,
@@ -513,6 +534,10 @@ impl Action {
                 "--main-include" => {
                     let value = arg.get_arg(optarg)?;
                     user.main_include.push(include_file("main", value)?);
+                }
+
+                "--load-module" => {
+                    arg.push_to(&mut user.load_modules, optarg)?;
                 }
 
                 "--errlog-level" => {
@@ -729,6 +754,7 @@ mod tests {
             "--http-include",
             "--main-conf",
             "--main-include",
+            "--load-module",
             "--errlog-level",
             "--nginx",
             "--stream-conf",

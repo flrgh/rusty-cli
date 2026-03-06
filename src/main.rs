@@ -29,9 +29,9 @@ pub(crate) const RESTY_COMPAT_DEFAULT: compat_version::Version = {
 };
 
 #[cfg(not(default_resty_compat_version))]
-pub(crate) const RESTY_COMPAT_DEFAULT: Version = compat_version::RESTY_COMPAT_MAX;
+pub const RESTY_COMPAT_DEFAULT: Version = compat_version::RESTY_COMPAT_MAX;
 
-pub(crate) static RESTY_COMPAT_VERSION: LazyLock<Version> = LazyLock::new(|| {
+pub static RESTY_COMPAT_VERSION: LazyLock<Version> = LazyLock::new(|| {
     use compat_version::*;
     match Version::from_env() {
         Some(Ok(value)) => {
