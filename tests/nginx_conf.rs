@@ -47,6 +47,8 @@ mod nginx_conf {
 
     #[bin_test]
     fn load_module(bin: testlib::Bin) {
+        min_resty_version!(0, 31);
+
         let mut cmd = bin.cmd();
 
         let nginx = testlib::testbin("print_nginx_conf");
