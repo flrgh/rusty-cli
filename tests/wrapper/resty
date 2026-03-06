@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+if [[ ! -x ./target/debug/rusty-cli ]]; then
+    echo "FATAL: ./target/debug/rusty-cli missing or not executable" >&2
+    exit 1
+fi
+
+exec -a resty ./target/debug/rusty-cli "$@"

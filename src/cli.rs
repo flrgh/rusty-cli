@@ -58,24 +58,24 @@ Options:
       --http-conf <CONF>
           Specifies nginx.conf snippet inserted into the http {} configuration block (multiple instances are supported).
       --stream-conf <CONF>
-          Disable the stream {} configuration in auto-generated nginx.conf.
-      --main-conf <CONF>
-          Specifies nginx.conf snippet inserted into the nginx main {} configuration block (multiple instances are supported).
-      --http-include <PATH>
-          Include the specified file in the nginx http configuration block (multiple instances are supported).
-      --main-include <PATH>
-          Include the specified file in the nginx main configuration block (multiple instances are supported)."#.as_bytes());
+          Disable the stream {} configuration in auto-generated nginx.conf."#.as_bytes());
 
     if resty_version >= (0, 31).into() {
         let _ = stdout.write_all(
             r#"
-      --load-module <PATH>
-          Load the specified nginx module (multiple instances are supported)."#
+      --load-module <MOD>
+          Load the specified nginx module. (multiple instances are supported)."#
                 .as_bytes(),
         );
     }
 
     let _ = stdout.write_all(r#"
+      --main-conf <CONF>
+          Specifies nginx.conf snippet inserted into the nginx main {} configuration block (multiple instances are supported).
+      --http-include <PATH>
+          Include the specified file in the nginx http configuration block (multiple instances are supported).
+      --main-include <PATH>
+          Include the specified file in the nginx main configuration block (multiple instances are supported).
       --valgrind
           Use valgrind to run nginx.
       --valgrind-opts <OPTS>

@@ -1,22 +1,13 @@
 diff --git t/resty/options.t t/resty/options.t
-index 7bc496e..6ba92c3 100644
+index 7bc496e..239ed1f 100644
 --- t/resty/options.t
 +++ t/resty/options.t
-@@ -28,7 +28,7 @@ print("arg 3: ", arg[3])
- --- opts: -V
- --- out
- --- err_like eval
--qr/^resty \d+.\d{2}
-+qr/^rusty-cli \d+[.]\d+[.]\d+(-.+)?
- nginx version: /s
- --- ret: 0
- 
 @@ -37,87 +37,78 @@ nginx version: /s
  === TEST 3: -h
  --- opts: -h
  --- out
 -resty [options] [lua-file [args]]
-+Usage: rusty-cli [OPTIONS] [lua-file] [args]...
++Usage: resty [OPTIONS] [lua-file] [args]...
 +
 +Arguments:
 +  [lua-file]
@@ -63,14 +54,14 @@ index 7bc496e..6ba92c3 100644
 +          Specifies nginx.conf snippet inserted into the http {} configuration block (multiple instances are supported).
 +      --stream-conf <CONF>
 +          Disable the stream {} configuration in auto-generated nginx.conf.
++      --load-module <MOD>
++          Load the specified nginx module. (multiple instances are supported).
 +      --main-conf <CONF>
 +          Specifies nginx.conf snippet inserted into the nginx main {} configuration block (multiple instances are supported).
 +      --http-include <PATH>
 +          Include the specified file in the nginx http configuration block (multiple instances are supported).
 +      --main-include <PATH>
 +          Include the specified file in the nginx main configuration block (multiple instances are supported).
-+      --load-module <PATH>
-+          Load the specified nginx module (multiple instances are supported).
 +      --valgrind
 +          Use valgrind to run nginx.
 +      --valgrind-opts <OPTS>

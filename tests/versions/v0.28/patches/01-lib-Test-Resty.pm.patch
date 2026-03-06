@@ -7,7 +7,7 @@ index 2716fc6..14f56db 100644
      my $args = $block->args;
  
 -    my $cmd = "./bin/resty";
-+    my $cmd = "./target/debug/rusty-cli";
++    my $cmd = "./tests/wrapper/resty";
  
      if ($UseValgrind) {
          my $val_opts = " --num-callers=100 -q --gen-suppressions=all";
