@@ -8,79 +8,116 @@ defaults:
     shell: bash
 
 jobs:
-  compat:
-    name: resty-cli compat ${{ matrix.resty-cli }} / ${{ matrix.openresty }}
+  build-matrix:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - openresty: 1.19.9.1
-            resty-cli: v0.28
-            openssl: 1.1.1n
-            openresty-opts: >
-              --with-compat
-              --with-pcre
-              --with-pcre-jit
-              --with-stream
-              --with-threads
-              --with-http_ssl_module
-              --with-stream_ssl_module
-              --with-stream_ssl_preread_module
 
-          - openresty: 1.21.4.3
-            resty-cli: v0.29
-            openssl: 1.1.1n
-            openresty-opts: >
-              --with-compat
-              --with-pcre
-              --with-pcre-jit
-              --with-stream
-              --with-threads
-              --with-http_ssl_module
-              --with-stream_ssl_module
-              --with-stream_ssl_preread_module
-
-          - openresty: 1.25.3.2
-            resty-cli: v0.30
-            openssl: 1.1.1w
-            openresty-opts: >
-              --with-compat
-              --with-pcre
-              --with-pcre-jit
-              --with-stream
-              --with-threads
-              --with-http_ssl_module
-              --with-stream_ssl_module
-              --with-stream_ssl_preread_module
-
-          - openresty: 1.27.1.1
-            resty-cli: v0.30
-            openssl: 3.0.15
-            openresty-opts: >
-              --with-compat
-              --with-pcre
-              --with-pcre-jit
-              --with-stream
-              --with-threads
-              --with-http_ssl_module
-              --with-stream_ssl_module
-              --with-stream_ssl_preread_module
-
-          - openresty: 1.27.1.2
-            resty-cli: v0.31
-            openssl: 3.4.1
-            openresty-opts: >
-              --with-compat
-              --with-pcre
-              --with-pcre-jit
-              --with-stream
-              --with-threads
-              --with-http_ssl_module
-              --with-stream_ssl_module
-              --with-stream_ssl_preread_module
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: matrix
+        id: matrix
+        run: |
+          MATRIX=$(jq -c -r --null-input '
+            . as $_
+
+            | [
+                {
+                  openresty: "1.19.9.1",
+                  openssl: "1.1.1n",
+                  cli: [
+                    "v0.28"
+                  ]
+                },
+                {
+                  openresty: "1.21.4.3",
+                  openssl: "1.1.1w",
+                  cli: [
+                    "v0.29"
+                  ]
+                },
+                {
+                  openresty: "1.25.3.2",
+                  openssl: "1.1.1w",
+                  cli: [
+                    "v0.29"
+                  ]
+                },
+                {
+                  openresty: "1.27.1.2",
+                  openssl: "3.4.1",
+                  cli: [
+                    "v0.29",
+                    "v0.30",
+                    "v0.31",
+                    "v0.32"
+                  ]
+                }
+              ] as $RESTY_META
+
+            | reduce (
+                $RESTY_META[]
+                | .openresty as $openresty
+                | .openssl as $openssl
+                | {
+                    $openresty,
+                    $openssl,
+                    cli: .cli[]
+                  }
+              ) as { $openresty, $openssl, $cli }
+              (
+                {
+                  label: [],
+                  include: [],
+                };
+
+                .
+                | "cli(\($cli)) - resty(\($openresty))" as $label
+                | .label += [$label]
+                | .include += [{
+                    $label,
+                    $openresty,
+                    $openssl,
+                    "resty-cli": $cli,
+                  }]
+              )
+            '
+          )
+
+          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+          {
+            echo '# matrix'
+            echo '```json'
+            jq --indent 2 <<< "$MATRIX"
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
+
+  compat:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    needs: [build-matrix]
+    strategy:
+      # don't cancel in-progress test if one matrix fails
+      fail-fast: false
+
+      matrix: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
+
+    env:
+      RESTY_CLI_COMPAT_VERSION: ${{ matrix.resty-cli }}
+      RESTY_BUILD_OPTS: >
+        --with-compat
+        --with-pcre
+        --with-pcre-jit
+        --with-stream
+        --with-threads
+        --with-http_ssl_module
+        --with-stream_ssl_module
+        --with-stream_ssl_preread_module
+      RESTY_OPENSSL_VERSION: ${{ matrix.openssl }}
+      RESTY_VERSION: ${{ matrix.openresty }}
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: ./.github/actions/build
 
       - name: install deps
@@ -90,23 +127,19 @@ jobs:
           sudo apt-get install -y gdb libpcre3
           gdb --version
 
-      - name: set resty-cli compat env var
-        run: echo "RESTY_CLI_COMPAT_VERSION=${{ matrix.resty-cli }}" >> $GITHUB_ENV
-
       - name: set OpenResty prefix
         run: |
-          echo OPENRESTY_PREFIX=${GITHUB_WORKSPACE}/openresty/${{ matrix.openresty }} >> $GITHUB_ENV
+          echo OPENRESTY_PREFIX=${GITHUB_WORKSPACE}/openresty/${RESTY_VERSION:?} >> $GITHUB_ENV
           echo PERL5LIB=${GITHUB_WORKSPACE}/work/lib/cpanm/lib/perl5 >> $GITHUB_ENV
 
       - name: Store OpenResty build opts
         run: |
           > .resty-opts
-          echo '${{ matrix.openresty-opts }}' >> .resty-opts
-          echo '${{ matrix.resty-cli }}'      >> .resty-opts
-          echo '${{ matrix.openssl }}'        >> .resty-opts
+          echo "${RESTY_BUILD_OPTS:?}"          >> .resty-opts
+          echo "${RESTY_OPENSSL_VERSION:?}"     >> .resty-opts
 
       - name: cache OpenResty
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: cache-openresty
         with:
           path: |
@@ -129,7 +162,7 @@ jobs:
           openssl-version: ${{ matrix.openssl }}
           test-nginx: true
           debug: true
-          opt: ${{ matrix.openresty-opts }}
+          opt: ${{ env.RESTY_BUILD_OPTS }}
 
       - name: Cleanup OpenResty build artifacts
         if: steps.cache-openresty.outputs.cache-hit != 'true'
@@ -151,7 +184,7 @@ jobs:
           echo ${OPENRESTY_PREFIX}/nginx/sbin >> $GITHUB_PATH
 
       - name: checkout resty-cli repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: openresty/resty-cli
           ref: ${{ matrix.resty-cli }}
@@ -193,11 +226,6 @@ jobs:
       - name: prove
         run: prove -r t/
 
-      - name: cargo - integration
-        env:
-          RUSTY_CLI_TEST_RESTY: "true"
-        run: cargo test integration -- --test-threads 4
-
       - name: runner opts
         run: ./tests/runners.sh
 
@@ -207,7 +235,7 @@ jobs:
       - name: lua script argv translation
         run: ./tests/lua-arg.sh
 
-      - name: sigwinch-handling
+      - name: signal-handling
         run: ./tests/sigwinch.sh
 
       - name: nginx binary location

@@ -1,0 +1,13 @@
+diff --git t/lib/Test/Resty.pm t/lib/Test/Resty.pm
+index 2716fc6..14f56db 100644
+--- t/lib/Test/Resty.pm
++++ t/lib/Test/Resty.pm
+@@ -87,7 +87,7 @@ sub run_test ($) {
+     my $opts = $block->opts // '';
+     my $args = $block->args;
+ 
+-    my $cmd = "./bin/resty";
++    my $cmd = "./target/debug/rusty-cli";
+ 
+     if ($UseValgrind) {
+         my $val_opts = " --num-callers=100 -q --gen-suppressions=all";
