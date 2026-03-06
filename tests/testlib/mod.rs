@@ -126,12 +126,10 @@ pub fn check_min_version(minor: u16, major: u16) -> bool {
 
 #[macro_export]
 macro_rules! min_resty_version {
-    ($min:literal, $maj:literal) => {
-        {
-            if !testlib::check_min_version($min, $maj) {
-                eprintln!("SKIP {}.{}", $min, $maj);
-                return;
-            }
+    ($min:literal, $maj:literal) => {{
+        if !testlib::check_min_version($min, $maj) {
+            eprintln!("SKIP {}.{}", $min, $maj);
+            return;
         }
-    }
+    }};
 }
