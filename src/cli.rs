@@ -75,7 +75,18 @@ Options:
       --http-include <PATH>
           Include the specified file in the nginx http configuration block (multiple instances are supported).
       --main-include <PATH>
-          Include the specified file in the nginx main configuration block (multiple instances are supported).
+          Include the specified file in the nginx main configuration block (multiple instances are supported)."#.as_bytes());
+
+    if resty_version >= (0, 32).into() {
+        let _ = stdout.write_all(
+            r#"
+      --dump-nginx-conf
+          Print the generated nginx configuration file instead of running nginx."#
+                .as_bytes(),
+        );
+    }
+
+    let _ = stdout.write_all(r#"
       --valgrind
           Use valgrind to run nginx.
       --valgrind-opts <OPTS>
@@ -98,8 +109,6 @@ Options:
           Specifies nginx.conf snippet inserted into the nginx stream {} configuration block (multiple instances are supported).
       --rr
           Use Mozilla rr to record the execution of the underlying nginx C process.
-      --dump-nginx-conf
-          Print the generated nginx configuration file instead of running nginx.
   -h, --help
           Print help (see more with '--help')
 "#.as_bytes());

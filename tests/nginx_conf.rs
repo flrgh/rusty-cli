@@ -92,20 +92,14 @@ mod nginx_conf {
 
     #[bin_test]
     fn dump_nginx_conf(bin: testlib::Bin) {
+        min_resty_version!(0, 32);
         let mut cmd = bin.cmd();
 
         // validates that rusty/resty don't actually attempt to run nginx
         // in this code path
-        cmd.args([
-            "--nginx",
-            "/i/definitely/do/not/exist",
-        ]);
+        cmd.args(["--nginx", "/i/definitely/do/not/exist"]);
 
-        cmd.args([
-            "--dump-nginx-conf",
-            "-e",
-            "print('hello')",
-        ]);
+        cmd.args(["--dump-nginx-conf", "-e", "print('hello')"]);
 
         let stdout = cmd.stdout_lines();
 
