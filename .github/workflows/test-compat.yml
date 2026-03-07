@@ -52,6 +52,13 @@ jobs:
                     "v0.31",
                     "v0.32"
                   ]
+                },
+                {
+                  openresty: "1.29.2.1",
+                  openssl: "3.5.5",
+                  cli: [
+                    "v0.32"
+                  ]
                 }
               ] as $RESTY_META
 
