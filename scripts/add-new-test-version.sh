@@ -39,6 +39,7 @@ patches() {
     mkdir -p "${VERSIONS}/${version}/patches"
     echo "creating patches in ${VERSIONS}/${version}/patches"
     ln \
+        --verbose \
         --relative \
         --symbolic \
         "${VERSIONS}/${last}/patches"/* \
@@ -52,7 +53,7 @@ setup() {
     local -r last=$REPLY
 
     if (( FORCE )); then
-        rm -rf "${VERSIONS:?}/${version:?}"
+        rm -rfv "${VERSIONS:?}/${version:?}"
     fi
 
     patches "$version" "$last"

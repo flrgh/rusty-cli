@@ -75,7 +75,18 @@ Options:
       --http-include <PATH>
           Include the specified file in the nginx http configuration block (multiple instances are supported).
       --main-include <PATH>
-          Include the specified file in the nginx main configuration block (multiple instances are supported).
+          Include the specified file in the nginx main configuration block (multiple instances are supported)."#.as_bytes());
+
+    if resty_version >= (0, 32).into() {
+        let _ = stdout.write_all(
+            r#"
+      --dump-nginx-conf
+          Print the generated nginx configuration file instead of running nginx."#
+                .as_bytes(),
+        );
+    }
+
+    let _ = stdout.write_all(r#"
       --valgrind
           Use valgrind to run nginx.
       --valgrind-opts <OPTS>
@@ -354,6 +365,26 @@ impl Action {
                     }
                 };
 
+                let events_conf = vec![format!("worker_connections {};", user.worker_connections)];
+
+                let conf_builder = nginx::ConfBuilder::new()
+                    .load_modules(user.load_modules.clone())
+                    .main(main_conf(&mut user))
+                    .events(events_conf)
+                    .stream(stream_conf(&mut user), !user.no_stream)
+                    .http(http_conf(&mut user))
+                    .lua(lua_loader);
+
+                if user.dump_nginx_conf {
+                    let stdout = std::io::stdout();
+                    let handle = stdout.lock();
+                    if let Err(e) = conf_builder.render(handle) {
+                        eprintln!("failed writing nginx.conf to stdout: {}", e);
+                        return 2;
+                    }
+                    return 0;
+                }
+
                 let conf_path = prefix.conf.join("nginx.conf");
                 let file = match fs::File::create(conf_path) {
                     Ok(file) => std::io::BufWriter::new(file),
@@ -363,17 +394,7 @@ impl Action {
                     }
                 };
 
-                let events_conf = vec![format!("worker_connections {};", user.worker_connections)];
-
-                if let Err(e) = nginx::ConfBuilder::new()
-                    .load_modules(user.load_modules.clone())
-                    .main(main_conf(&mut user))
-                    .events(events_conf)
-                    .stream(stream_conf(&mut user), !user.no_stream)
-                    .http(http_conf(&mut user))
-                    .lua(lua_loader)
-                    .render(file)
-                {
+                if let Err(e) = conf_builder.render(file) {
                     eprintln!("failed writing nginx.conf file: {}", e);
                     return 2;
                 }
@@ -419,6 +440,8 @@ pub(crate) struct UserArgs {
     pub(crate) no_stream: bool,
 
     pub(crate) runner: Runner,
+
+    pub(crate) dump_nginx_conf: bool,
 
     pub(crate) arg_c: usize,
     pub(crate) arg_0: String,
@@ -494,6 +517,10 @@ impl Action {
                 }
 
                 "--rr" => runner.update(Runner::RR)?,
+
+                "--dump-nginx-conf" => {
+                    user.dump_nginx_conf = true;
+                }
 
                 "--stap" => runner.update(Runner::Stap(None))?,
 
@@ -783,6 +810,7 @@ mod tests {
             "--stap",
             "--valgrind",
             "--resolve-ipv6",
+            "--dump-nginx-conf",
         ];
 
         for opt in opts {
