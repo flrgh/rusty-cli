@@ -23,27 +23,6 @@ jobs:
 
             | [
                 {
-                  openresty: "1.19.9.1",
-                  openssl: "1.1.1n",
-                  cli: [
-                    "v0.28"
-                  ]
-                },
-                {
-                  openresty: "1.21.4.3",
-                  openssl: "1.1.1w",
-                  cli: [
-                    "v0.29"
-                  ]
-                },
-                {
-                  openresty: "1.25.3.2",
-                  openssl: "1.1.1w",
-                  cli: [
-                    "v0.29"
-                  ]
-                },
-                {
                   openresty: "1.27.1.2",
                   openssl: "3.4.1",
                   cli: [
