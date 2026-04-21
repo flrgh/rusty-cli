@@ -29,5 +29,5 @@ x86_64-unknown-linux-gnu = "ubuntu-24.04"
 [dist.github-action-commits]
 "actions/checkout" = "de0fac2e4500dabe0009e67214ff5f5447ce83dd"
 "actions/download-artifact" = "37930b1c2abaa49bbe596cd826c3c89aef350131"
-"actions/upload-artifact" = "b7c566a772e6b6bfb58ed0dc250532a479d7789f"
+"actions/upload-artifact" = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
 # dependabot END
