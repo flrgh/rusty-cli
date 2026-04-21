@@ -23,8 +23,25 @@ jobs:
 
             | [
                 {
+                  openresty: "1.19.9.1",
+                  cli: [
+                    "v0.28"
+                  ]
+                },
+                {
+                  openresty: "1.21.4.3",
+                  cli: [
+                    "v0.29"
+                  ]
+                },
+                {
+                  openresty: "1.25.3.2",
+                  cli: [
+                    "v0.29"
+                  ]
+                },
+                {
                   openresty: "1.27.1.2",
-                  openssl: "3.4.1",
                   cli: [
                     "v0.29",
                     "v0.30",
@@ -34,7 +51,6 @@ jobs:
                 },
                 {
                   openresty: "1.29.2.1",
-                  openssl: "3.5.5",
                   cli: [
                     "v0.32"
                   ]
@@ -44,13 +60,11 @@ jobs:
             | reduce (
                 $RESTY_META[]
                 | .openresty as $openresty
-                | .openssl as $openssl
                 | {
                     $openresty,
-                    $openssl,
                     cli: .cli[]
                   }
-              ) as { $openresty, $openssl, $cli }
+              ) as { $openresty, $cli }
               (
                 {
                   label: [],
@@ -63,7 +77,6 @@ jobs:
                 | .include += [{
                     $label,
                     $openresty,
-                    $openssl,
                     "resty-cli": $cli,
                   }]
               )
@@ -96,10 +109,6 @@ jobs:
         --with-pcre-jit
         --with-stream
         --with-threads
-        --with-http_ssl_module
-        --with-stream_ssl_module
-        --with-stream_ssl_preread_module
-      RESTY_OPENSSL_VERSION: ${{ matrix.openssl }}
       RESTY_VERSION: ${{ matrix.openresty }}
 
     steps:
@@ -122,7 +131,6 @@ jobs:
         run: |
           > .resty-opts
           echo "${RESTY_BUILD_OPTS:?}"          >> .resty-opts
-          echo "${RESTY_OPENSSL_VERSION:?}"     >> .resty-opts
 
       - name: cache OpenResty
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
@@ -145,7 +153,6 @@ jobs:
         uses: thibaultcha/setup-openresty@3cf62bb9f63cca0c3e77e770d0313560d28b8023 # main
         with:
           version: ${{ matrix.openresty }}
-          openssl-version: ${{ matrix.openssl }}
           test-nginx: true
           debug: true
           opt: ${{ env.RESTY_BUILD_OPTS }}
@@ -155,11 +162,6 @@ jobs:
         run: |
           rm -rf \
             ./work/OpenResty \
-            ./work/OpenSSL/test \
-            ./work/OpenSSL/doc \
-            ./work/OpenSSL/test \
-            ./work/OpenSSL/demos \
-            ./work/OpenSSL/fuzz \
             ./work/downloads \
           || true
 
