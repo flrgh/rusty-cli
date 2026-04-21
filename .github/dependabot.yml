@@ -6,6 +6,7 @@ updates:
       - "/"
       - ".github/actions/build"
       - ".github/actions/setup"
+      - ".github/actions/setup-openresty"
     schedule:
       interval: "weekly"
 

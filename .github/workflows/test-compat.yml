@@ -24,24 +24,28 @@ jobs:
             | [
                 {
                   openresty: "1.19.9.1",
+                  openssl: "1.1.1n",
                   cli: [
                     "v0.28"
                   ]
                 },
                 {
                   openresty: "1.21.4.3",
+                  openssl: "1.1.1w",
                   cli: [
                     "v0.29"
                   ]
                 },
                 {
                   openresty: "1.25.3.2",
+                  openssl: "1.1.1w",
                   cli: [
                     "v0.29"
                   ]
                 },
                 {
                   openresty: "1.27.1.2",
+                  openssl: "3.4.1",
                   cli: [
                     "v0.29",
                     "v0.30",
@@ -51,6 +55,7 @@ jobs:
                 },
                 {
                   openresty: "1.29.2.1",
+                  openssl: "3.5.5",
                   cli: [
                     "v0.32"
                   ]
@@ -60,11 +65,13 @@ jobs:
             | reduce (
                 $RESTY_META[]
                 | .openresty as $openresty
+                | .openssl as $openssl
                 | {
                     $openresty,
+                    $openssl,
                     cli: .cli[]
                   }
-              ) as { $openresty, $cli }
+              ) as { $openresty, $openssl, $cli }
               (
                 {
                   label: [],
@@ -77,6 +84,7 @@ jobs:
                 | .include += [{
                     $label,
                     $openresty,
+                    $openssl,
                     "resty-cli": $cli,
                   }]
               )
@@ -103,13 +111,6 @@ jobs:
 
     env:
       RESTY_CLI_COMPAT_VERSION: ${{ matrix.resty-cli }}
-      RESTY_BUILD_OPTS: >
-        --with-compat
-        --with-pcre
-        --with-pcre-jit
-        --with-stream
-        --with-threads
-      RESTY_VERSION: ${{ matrix.openresty }}
 
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -122,54 +123,11 @@ jobs:
           sudo apt-get install -y gdb libpcre3
           gdb --version
 
-      - name: set OpenResty prefix
-        run: |
-          echo OPENRESTY_PREFIX=${GITHUB_WORKSPACE}/openresty/${RESTY_VERSION:?} >> $GITHUB_ENV
-          echo PERL5LIB=${GITHUB_WORKSPACE}/work/lib/cpanm/lib/perl5 >> $GITHUB_ENV
-
-      - name: Store OpenResty build opts
-        run: |
-          > .resty-opts
-          echo "${RESTY_BUILD_OPTS:?}"          >> .resty-opts
-
-      - name: cache OpenResty
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        id: cache-openresty
-        with:
-          path: |
-            ${{ env.OPENRESTY_PREFIX }}
-            work/
-          key: v2::${{ runner.os }}-openresty-${{ matrix.openresty }}-${{ hashFiles('.resty-opts') }}
-
-      - name: install OpenResty build deps
-        if: steps.cache-openresty.outputs.cache-hit != 'true'
-        id: openresty-deps
-        run: |
-          sudo apt-get install -y libpcre3-dev
-
       - name: setup OpenResty
-        if: steps.cache-openresty.outputs.cache-hit != 'true'
-        id: setup-openresty
-        uses: thibaultcha/setup-openresty@3cf62bb9f63cca0c3e77e770d0313560d28b8023 # main
+        uses: ./.github/actions/setup-openresty
         with:
           version: ${{ matrix.openresty }}
-          test-nginx: true
-          debug: true
-          opt: ${{ env.RESTY_BUILD_OPTS }}
-
-      - name: Cleanup OpenResty build artifacts
-        if: steps.cache-openresty.outputs.cache-hit != 'true'
-        run: |
-          rm -rf \
-            ./work/OpenResty \
-            ./work/downloads \
-          || true
-
-      - name: add OpenResty bin dirs to PATH
-        run: |
-          echo ${OPENRESTY_PREFIX}/bin >> $GITHUB_PATH
-          echo ${OPENRESTY_PREFIX}/luajit/bin >> $GITHUB_PATH
-          echo ${OPENRESTY_PREFIX}/nginx/sbin >> $GITHUB_PATH
+          openssl-version: ${{ matrix.openssl }}
 
       - name: checkout resty-cli repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
