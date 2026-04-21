@@ -1,0 +1,175 @@
+name: setup OpenResty
+description: >-
+  Download, patch, and build OpenResty + OpenSSL, install Test::Nginx via
+  cpanm, cache the result, and put the install on PATH. Replaces
+  thibaultcha/setup-openresty for this repo's compat matrix.
+
+inputs:
+  version:
+    description: OpenResty version (e.g. 1.27.1.2)
+    required: true
+  openssl-version:
+    description: OpenSSL version (e.g. 1.1.1w or 3.4.1)
+    required: true
+
+outputs:
+  openresty-prefix:
+    description: Install prefix (also exported as $OPENRESTY_PREFIX)
+    value: ${{ steps.prep.outputs.prefix }}
+
+runs:
+  using: composite
+  steps:
+    - name: prepare
+      id: prep
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        WORK="${GITHUB_WORKSPACE}/work"
+        PREFIX="${GITHUB_WORKSPACE}/openresty/${VERSION}"
+        mkdir -p "${WORK}"
+        echo "WORK=${WORK}"                                    >> "${GITHUB_ENV}"
+        echo "OPENRESTY_PREFIX=${PREFIX}"                      >> "${GITHUB_ENV}"
+        echo "PERL5LIB=${WORK}/lib/cpanm/lib/perl5"            >> "${GITHUB_ENV}"
+        echo "prefix=${PREFIX}"                                >> "${GITHUB_OUTPUT}"
+
+    - name: cache OpenResty
+      id: cache
+      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      with:
+        path: |
+          ${{ env.OPENRESTY_PREFIX }}
+          work/
+        key: >-
+          ${{
+            format(
+              'v3::{0}-openresty-{1}-openssl-{2}-{3}',
+              runner.os,
+              inputs.version,
+              inputs.openssl-version,
+              hashFiles('.github/actions/setup-openresty/action.yml')
+            )
+          }}
+
+    - name: install build deps
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: sudo apt-get install -y libpcre3-dev
+
+    - name: download + patch OpenSSL
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        OPENSSL_VERSION: ${{ inputs.openssl-version }}
+      run: |
+        set -euo pipefail
+        cd "${WORK}"
+
+        # openssl.org's 301 points at the lowercase `openssl-X.Y.Z` tag,
+        # which only exists for 3.x; 1.1.x uses `OpenSSL_X_Y_Zn`.
+        case "${OPENSSL_VERSION}" in
+          1.*) TAG="OpenSSL_${OPENSSL_VERSION//./_}" ;;
+          3.*) TAG="openssl-${OPENSSL_VERSION}" ;;
+          *) echo "::error::Unsupported OpenSSL version: ${OPENSSL_VERSION}"; exit 1 ;;
+        esac
+        curl -fsSLo openssl.tar.gz \
+          "https://github.com/openssl/openssl/releases/download/${TAG}/openssl-${OPENSSL_VERSION}.tar.gz"
+
+        rm -rf OpenSSL && mkdir OpenSSL
+        tar -xzf openssl.tar.gz -C OpenSSL --strip-components=1
+        rm -f openssl.tar.gz
+
+        # ngx_lua's session-resume cosocket path needs OpenResty's patch.
+        # Only 1.1.x in our matrix needs it; the patch tracks 1.1.1f for
+        # all 1.1.1[f-z]+ releases.
+        case "${OPENSSL_VERSION}" in
+          1.1.1[f-z]*)
+            PATCH_URL='https://raw.githubusercontent.com/openresty/openresty/master/patches/openssl-1.1.1f-sess_set_get_cb_yield.patch'
+            curl -fsSLo openssl.patch "${PATCH_URL}"
+            (cd OpenSSL && patch --forward -p1) < openssl.patch \
+              || echo "::warning::OpenSSL patch did not apply cleanly (continuing)"
+            rm -f openssl.patch
+            ;;
+        esac
+
+        echo "OPENSSL_SRC=${WORK}/OpenSSL" >> "${GITHUB_ENV}"
+
+    - name: download + build OpenResty
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        cd "${WORK}"
+
+        curl -fsSLo openresty.tar.gz \
+          "https://openresty.org/download/openresty-${VERSION}.tar.gz"
+        rm -rf OpenResty && mkdir OpenResty
+        tar -xzf openresty.tar.gz -C OpenResty --strip-components=1
+        rm -f openresty.tar.gz
+
+        IFS=. read -r MAJ MIN _ _ <<< "${VERSION}"
+
+        ARGS=(
+          "--builddir=${WORK}/build"
+          "--prefix=${OPENRESTY_PREFIX}"
+          "-j$(nproc)"
+          "--with-cc-opt=-g"
+          "--with-debug"
+          "--with-openssl=${OPENSSL_SRC}"
+          --with-compat
+          --with-pcre
+          --with-pcre-jit
+          --with-stream
+          --with-threads
+          --with-http_ssl_module
+          --with-stream_ssl_module
+          --with-stream_ssl_preread_module
+        )
+
+        # Old OpenResty bundles a PCRE rewrite module that fails to find
+        # PCRE on newer hosts. Disable it for pre-1.27.
+        if (( MAJ == 1 && MIN < 27 )); then
+          ARGS+=("--without-http_rewrite_module")
+        fi
+
+        echo "configure: ${ARGS[*]}"
+        cd OpenResty
+        ./configure "${ARGS[@]}"
+        make -j"$(nproc)"
+        make install
+
+    - name: install Test::Nginx via cpanm
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        DIR_CPAN="${WORK}/lib/cpanm"
+        mkdir -p "${DIR_CPAN}"
+        curl -fsSLo "${WORK}/cpanm" https://cpanmin.us
+        chmod +x "${WORK}/cpanm"
+        for mod in local::lib Test::Nginx IPC::Run IPC::Run3; do
+          "${WORK}/cpanm" --notest --local-lib="${DIR_CPAN}" "${mod}"
+        done
+
+    - name: cleanup build artifacts
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        rm -rf \
+          "${WORK}/OpenResty" \
+          "${WORK}/OpenSSL/test" \
+          "${WORK}/OpenSSL/doc" \
+          "${WORK}/OpenSSL/demos" \
+          "${WORK}/OpenSSL/fuzz" \
+          || true
+
+    - name: add OpenResty to PATH
+      shell: bash
+      run: |
+        echo "${OPENRESTY_PREFIX}/bin"        >> "${GITHUB_PATH}"
+        echo "${OPENRESTY_PREFIX}/luajit/bin" >> "${GITHUB_PATH}"
+        echo "${OPENRESTY_PREFIX}/nginx/sbin" >> "${GITHUB_PATH}"
