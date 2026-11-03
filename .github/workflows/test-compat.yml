@@ -10,7 +10,7 @@ defaults:
 
 jobs:
   build-matrix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -62,7 +62,7 @@ jobs:
 
   compat:
     name: ${{ matrix.label }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build-matrix]
     strategy:
       # don't cancel in-progress test if one matrix fails
