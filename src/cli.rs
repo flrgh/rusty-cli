@@ -86,6 +86,15 @@ Options:
         );
     }
 
+    if resty_version >= (0, 36).into() {
+        let _ = stdout.write_all(
+            r#"
+      --no-clean
+          Do not remove the temporary nginx prefix directory on exit (useful for debugging the generated files)."#
+                .as_bytes(),
+        );
+    }
+
     let _ = stdout.write_all(r#"
       --valgrind
           Use valgrind to run nginx.
@@ -316,7 +325,10 @@ impl Action {
 
             Action::Main(mut user) => {
                 let prefix = match Prefix::new() {
-                    Ok(p) => p,
+                    Ok(mut p) => {
+                        p.clean_on_drop = !user.no_clean;
+                        p
+                    }
                     Err(e) => {
                         eprintln!("failed creating prefix directory: {}", e);
                         return 2;
@@ -442,6 +454,7 @@ pub(crate) struct UserArgs {
     pub(crate) runner: Runner,
 
     pub(crate) dump_nginx_conf: bool,
+    pub(crate) no_clean: bool,
 
     pub(crate) arg_c: usize,
     pub(crate) arg_0: String,
@@ -520,6 +533,10 @@ impl Action {
 
                 "--dump-nginx-conf" => {
                     user.dump_nginx_conf = true;
+                }
+
+                "--no-clean" => {
+                    user.no_clean = true;
                 }
 
                 "--stap" => runner.update(Runner::Stap(None))?,
