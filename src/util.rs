@@ -16,7 +16,7 @@ pub(crate) fn tempdir() -> io::Result<PathBuf> {
 }
 
 fn impl_try_parse_resolv_conf<T: Read>(buf: T) -> Vec<IpAddr> {
-    BufReader::new(buf)
+    let elems: Vec<_> = BufReader::new(buf)
         .lines()
         .map_while(Result::ok)
         .filter_map(|line| {
@@ -37,7 +37,9 @@ fn impl_try_parse_resolv_conf<T: Read>(buf: T) -> Vec<IpAddr> {
         // https://github.com/openresty/resty-cli/blob/3022948ef3d670b915bcf7027bcdd917591b96e4/bin/resty#L577
         .filter(|addr| addr.is_ipv4())
         .take(11) // resty-cli stops adding nameservers after it has > 10
-        .collect()
+        .collect();
+
+    elems.into_iter().rev().collect()
 }
 
 pub(crate) fn try_parse_resolv_conf() -> Vec<IpAddr> {
@@ -289,7 +291,7 @@ nameserver 127.0.0.3
 "##;
 
         assert_eq!(
-            addrs!["127.0.0.1", "127.0.0.2", "127.0.0.3"],
+            addrs!["127.0.0.3", "127.0.0.2", "127.0.0.1"],
             impl_try_parse_resolv_conf(input.as_bytes())
         );
 
@@ -310,17 +312,17 @@ nameserver 127.0.0.12
 
         assert_eq!(
             addrs![
-                "127.0.0.1",
-                "127.0.0.2",
-                "127.0.0.3",
-                "127.0.0.4",
-                "127.0.0.5",
-                "127.0.0.6",
-                "127.0.0.7",
-                "127.0.0.8",
-                "127.0.0.9",
+                "127.0.0.11",
                 "127.0.0.10",
-                "127.0.0.11"
+                "127.0.0.9",
+                "127.0.0.8",
+                "127.0.0.7",
+                "127.0.0.6",
+                "127.0.0.5",
+                "127.0.0.4",
+                "127.0.0.3",
+                "127.0.0.2",
+                "127.0.0.1"
             ],
             impl_try_parse_resolv_conf(input.as_bytes())
         );
@@ -333,7 +335,7 @@ nameserver 0:0:0:0:0:0:0:1
 nameserver 127.0.0.3
 "##;
         assert_eq!(
-            addrs!["127.0.0.1", "127.0.0.3"],
+            addrs!["127.0.0.3", "127.0.0.1"],
             impl_try_parse_resolv_conf(input.as_bytes())
         );
     }
