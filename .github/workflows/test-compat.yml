@@ -16,53 +16,13 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
 
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
       - name: matrix
         id: matrix
         run: |
-          MATRIX=$(jq -c -r --null-input '
-            . as $_
-
-            | [
-                {
-                  openresty: "1.19.9.1",
-                  openssl: "1.1.1n",
-                  cli: [
-                    "v0.28"
-                  ]
-                },
-                {
-                  openresty: "1.21.4.3",
-                  openssl: "1.1.1w",
-                  cli: [
-                    "v0.29"
-                  ]
-                },
-                {
-                  openresty: "1.25.3.2",
-                  openssl: "1.1.1w",
-                  cli: [
-                    "v0.29"
-                  ]
-                },
-                {
-                  openresty: "1.27.1.2",
-                  openssl: "3.4.1",
-                  cli: [
-                    "v0.29",
-                    "v0.30",
-                    "v0.31",
-                    "v0.32"
-                  ]
-                },
-                {
-                  openresty: "1.29.2.1",
-                  openssl: "3.5.5",
-                  cli: [
-                    "v0.32"
-                  ]
-                }
-              ] as $RESTY_META
-
+          MATRIX=$(jq -c -r < .github/openresty-matrix.json '
+            . as $RESTY_META
             | reduce (
                 $RESTY_META[]
                 | .openresty as $openresty
