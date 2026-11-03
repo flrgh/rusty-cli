@@ -1,4 +1,5 @@
 mod testlib;
+use std::assert_matches;
 use testlib::*;
 
 #[integration]
@@ -115,5 +116,47 @@ mod nginx_conf {
         );
 
         assert_empty!(cmd.stderr_lines());
+    }
+
+    #[bin_test]
+    fn no_clean_prefix(bin: testlib::Bin) {
+        min_resty_version!(0, 36);
+
+        {
+            let mut cmd = bin.cmd();
+
+            cmd.args(["-e", "print(ngx.config.prefix():sub(1, -2))"]);
+
+            let res = cmd.assert_success();
+            let stdout = res.stdout_lines();
+            let stderr = res.stderr_lines();
+
+            assert_eq!(1, stdout.len(), "one line should be printed to stdout");
+            let prefix = &stdout[0];
+
+            let exists = std::fs::exists(prefix);
+            let _ = std::fs::remove_dir_all(prefix);
+            assert_matches!(exists, Ok(false));
+
+            assert_empty!(stderr);
+        }
+
+        {
+            let mut cmd = bin.cmd();
+            cmd.args(["--no-clean", "-e", "print(ngx.config.prefix():sub(1, -2))"]);
+
+            let res = cmd.assert_success();
+            let stdout = res.stdout_lines();
+            let stderr = res.stderr_lines();
+
+            assert_eq!(1, stdout.len(), "one line should be printed to stdout");
+            let prefix = &stdout[0];
+
+            let exists = std::fs::exists(prefix);
+            let _ = std::fs::remove_dir_all(prefix);
+            assert_matches!(exists, Ok(true));
+
+            assert_eq!(vec![format!("kept the temp directory {prefix}"),], stderr);
+        }
     }
 }

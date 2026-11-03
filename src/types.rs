@@ -191,6 +191,7 @@ impl From<&JitCmd> for String {
 pub(crate) struct Prefix {
     pub(crate) root: PathBuf,
     pub(crate) conf: PathBuf,
+    pub(crate) clean_on_drop: bool,
 }
 
 impl Debug for Prefix {
@@ -215,14 +216,22 @@ impl Prefix {
         fs::create_dir_all(&conf)?;
         fs::create_dir_all(root.join("logs"))?;
 
-        Ok(Prefix { root, conf })
+        Ok(Prefix {
+            root,
+            conf,
+            clean_on_drop: true,
+        })
     }
 }
 
 impl Drop for Prefix {
     fn drop(&mut self) {
-        if let Err(e) = fs::remove_dir_all(&self.root) {
-            eprintln!("Failed to remove directory {}: {}", self.root.display(), e);
+        if self.clean_on_drop {
+            if let Err(e) = fs::remove_dir_all(&self.root) {
+                eprintln!("Failed to remove directory {}: {}", self.root.display(), e);
+            }
+        } else {
+            eprintln!("kept the temp directory {}", self.root.display());
         }
     }
 }
